@@ -1,5 +1,10 @@
 grammar Zetariano;
 
+@header 
+{
+    package mycompany.contacto_3xtrat3rr3str3d;
+}
+
 // PARSER
     programa: clase EOF;
     clase: PUBLIC CLASS ID LLAVE_IZQ miembro* LLAVE_DER;
