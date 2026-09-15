@@ -1,5 +1,9 @@
 grammar PigLatin;
 
+@header 
+{
+    package mycompany.contacto_3xtrat3rr3str3d;
+}
 // PARSER
     programa: importacion* seccionDeclaraciones? seccionCodigo FINIS_MAYUS PUNTOYCOMA EOF;
 
