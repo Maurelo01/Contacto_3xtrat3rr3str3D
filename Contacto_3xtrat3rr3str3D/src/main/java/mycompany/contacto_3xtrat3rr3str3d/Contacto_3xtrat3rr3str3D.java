@@ -11,6 +11,8 @@ package mycompany.contacto_3xtrat3rr3str3d;
 public class Contacto_3xtrat3rr3str3D {
 
     public static void main(String[] args) {
-        System.out.println("Hello World!");
+        java.awt.EventQueue.invokeLater(() -> {
+            new mycompany.contacto_3xtrat3rr3str3d.ui.VentanaPrincipal().setVisible(true);
+        });
     }
 }
