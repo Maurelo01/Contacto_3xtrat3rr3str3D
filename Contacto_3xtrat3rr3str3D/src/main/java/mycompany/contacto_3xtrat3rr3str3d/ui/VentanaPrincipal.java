@@ -80,6 +80,8 @@ public class VentanaPrincipal extends javax.swing.JFrame {
             editor.setText(contenido);
             editor.putClientProperty("archivoFisico", archivo);
             JScrollPane scroll = new JScrollPane(editor);
+            NumeroLinea numeros = new NumeroLinea(editor);
+            scroll.setRowHeaderView(numeros);
             panelPestañas.addTab(archivo.getName(), scroll);
             panelPestañas.setSelectedComponent(scroll);
         }
