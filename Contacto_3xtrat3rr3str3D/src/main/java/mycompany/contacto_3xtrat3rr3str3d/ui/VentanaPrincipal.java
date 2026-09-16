@@ -3,6 +3,7 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/GUIForms/JFrame.java to edit this template
  */
 package mycompany.contacto_3xtrat3rr3str3d.ui;
+import java.awt.Component;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -20,7 +21,7 @@ import javax.swing.text.DefaultStyledDocument;
 public class VentanaPrincipal extends javax.swing.JFrame {
     
     private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(VentanaPrincipal.class.getName());
-
+    private File carpetaProyectoActual;
     /**
      * Creates new form VentanaPrincipal
      */
@@ -106,8 +107,10 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         consolaSalida = new javax.swing.JTextArea();
         jMenuBar1 = new javax.swing.JMenuBar();
         menuArchivo = new javax.swing.JMenu();
+        itemNuevoArchivo = new javax.swing.JMenuItem();
         itemAbrirProyecto = new javax.swing.JMenuItem();
         itemGuardar = new javax.swing.JMenuItem();
+        itemCerrarArchivo = new javax.swing.JMenuItem();
         menuEjecutar = new javax.swing.JMenu();
         itemAnalizar = new javax.swing.JMenuItem();
 
@@ -129,6 +132,7 @@ public class VentanaPrincipal extends javax.swing.JFrame {
 
         splitHorizontal.setLeftComponent(splitVertical);
 
+        consolaSalida.setEditable(false);
         consolaSalida.setColumns(20);
         consolaSalida.setRows(5);
         jScrollPane2.setViewportView(consolaSalida);
@@ -137,12 +141,21 @@ public class VentanaPrincipal extends javax.swing.JFrame {
 
         menuArchivo.setText("Archivo");
 
+        itemNuevoArchivo.setText("Nuevo Archivo");
+        itemNuevoArchivo.addActionListener(this::itemNuevoArchivoActionPerformed);
+        menuArchivo.add(itemNuevoArchivo);
+
         itemAbrirProyecto.setText("Abrir Proyecto");
         itemAbrirProyecto.addActionListener(this::itemAbrirProyectoActionPerformed);
         menuArchivo.add(itemAbrirProyecto);
 
         itemGuardar.setText("Guardar");
+        itemGuardar.addActionListener(this::itemGuardarActionPerformed);
         menuArchivo.add(itemGuardar);
+
+        itemCerrarArchivo.setText("Cerrar Pestaña Actual");
+        itemCerrarArchivo.addActionListener(this::itemCerrarArchivoActionPerformed);
+        menuArchivo.add(itemCerrarArchivo);
 
         jMenuBar1.add(menuArchivo);
 
@@ -183,6 +196,7 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         if (seleccion == JFileChooser.APPROVE_OPTION)
         {
             File carpetaSeleccionada = buscador.getSelectedFile();
+            this.carpetaProyectoActual = carpetaSeleccionada;
             DefaultMutableTreeNode nodoRaiz = new DefaultMutableTreeNode(new NodoArchivo(carpetaSeleccionada));
             llenarArbol(carpetaSeleccionada, nodoRaiz);
             DefaultTreeModel modeloArbol = new DefaultTreeModel(nodoRaiz);
@@ -204,6 +218,77 @@ public class VentanaPrincipal extends javax.swing.JFrame {
             }
         }
     }//GEN-LAST:event_treeArchivosMouseClicked
+
+    private void itemGuardarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_itemGuardarActionPerformed
+        Component tabActiva = panelPestañas.getSelectedComponent();
+        if (tabActiva instanceof JScrollPane)
+        {
+            try
+            {
+                JScrollPane scroll = (JScrollPane) tabActiva;
+                JTextPane editor = (JTextPane) scroll.getViewport().getView();
+                File archivo = (File) editor.getClientProperty("archivoFisico");
+                if (archivo != null)
+                {
+                    Files.write(archivo.toPath(), editor.getText().getBytes());
+                    JOptionPane.showMessageDialog(this, "Archivo guardado correctamente.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+                }
+            }
+            catch (IOException e)
+            {
+                JOptionPane.showMessageDialog(this, "Error al guardar: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        } else
+        {
+            JOptionPane.showMessageDialog(this, "No hay ningún archivo abierto.", "Aviso", JOptionPane.WARNING_MESSAGE);
+        }
+    }//GEN-LAST:event_itemGuardarActionPerformed
+
+    private void itemNuevoArchivoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_itemNuevoArchivoActionPerformed
+        if (carpetaProyectoActual == null)
+        {
+            JOptionPane.showMessageDialog(this, "Primero debes abrir un proyecto/carpeta.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        String nombreArchivo = JOptionPane.showInputDialog(this, "Ingrese el nombre del archivo con extensión .z, .y, .pig:", "Nuevo Archivo", JOptionPane.QUESTION_MESSAGE);
+        if (nombreArchivo != null && !nombreArchivo.trim().isEmpty())
+        {
+            if (nombreArchivo.endsWith(".z") || nombreArchivo.endsWith(".y") || nombreArchivo.endsWith(".pig")) {
+                try
+                {
+                    File nuevoArchivo = new File(carpetaProyectoActual, nombreArchivo);
+                    if (nuevoArchivo.createNewFile())
+                    {
+                        JOptionPane.showMessageDialog(this, "Archivo creado exitosamente.");
+                        DefaultMutableTreeNode nodoRaiz = new DefaultMutableTreeNode(new NodoArchivo(carpetaProyectoActual));
+                        llenarArbol(carpetaProyectoActual, nodoRaiz);
+                        treeArchivos.setModel(new DefaultTreeModel(nodoRaiz));
+                        abrirArchivoEnPestaña(nuevoArchivo);
+                    }
+                    else
+                    {
+                        JOptionPane.showMessageDialog(this, "El archivo ya existe.", "Error", JOptionPane.ERROR_MESSAGE);
+                    }
+                }
+                catch (IOException e)
+                {
+                    JOptionPane.showMessageDialog(this, "Error al crear el archivo: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+            else
+            {
+                JOptionPane.showMessageDialog(this, "Extensión inválida. Debe ser .z, .y o .pig", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }//GEN-LAST:event_itemNuevoArchivoActionPerformed
+
+    private void itemCerrarArchivoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_itemCerrarArchivoActionPerformed
+        int indiceActivo = panelPestañas.getSelectedIndex();
+        if (indiceActivo != -1)
+        {
+            panelPestañas.remove(indiceActivo);
+        }
+    }//GEN-LAST:event_itemCerrarArchivoActionPerformed
 
     /**
      * @param args the command line arguments
@@ -234,7 +319,9 @@ public class VentanaPrincipal extends javax.swing.JFrame {
     private javax.swing.JTextArea consolaSalida;
     private javax.swing.JMenuItem itemAbrirProyecto;
     private javax.swing.JMenuItem itemAnalizar;
+    private javax.swing.JMenuItem itemCerrarArchivo;
     private javax.swing.JMenuItem itemGuardar;
+    private javax.swing.JMenuItem itemNuevoArchivo;
     private javax.swing.JMenuBar jMenuBar1;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
