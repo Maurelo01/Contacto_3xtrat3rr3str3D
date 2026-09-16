@@ -73,7 +73,7 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         try
         {
             String contenido = new String(Files.readAllBytes(archivo.toPath()));
-            DefaultStyledDocument doc = new DefaultStyledDocument();
+            ColoreadoSintaxis doc = new ColoreadoSintaxis();
             JTextPane editor = new JTextPane(doc);
             editor.setFont(new java.awt.Font("Monospaced", java.awt.Font.PLAIN, 14));
             editor.setText(contenido);
