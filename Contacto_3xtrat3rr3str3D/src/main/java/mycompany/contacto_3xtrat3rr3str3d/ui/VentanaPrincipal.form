@@ -52,6 +52,9 @@
               <Properties>
                 <Property name="text" type="java.lang.String" value="Analizar C&#xf3;digo"/>
               </Properties>
+              <Events>
+                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="itemAnalizarActionPerformed"/>
+              </Events>
             </MenuItem>
           </SubComponents>
         </Menu>

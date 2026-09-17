@@ -14,6 +14,16 @@ import javax.swing.JTextPane;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import javax.swing.text.DefaultStyledDocument;
+import mycompany.contacto_3xtrat3rr3str3d.PigLatinLexer;
+import mycompany.contacto_3xtrat3rr3str3d.PigLatinParser;
+import mycompany.contacto_3xtrat3rr3str3d.YLexer;
+import mycompany.contacto_3xtrat3rr3str3d.YParser;
+import mycompany.contacto_3xtrat3rr3str3d.ZetarianoLexer;
+import mycompany.contacto_3xtrat3rr3str3d.ZetarianoParser;
+import org.antlr.v4.runtime.CharStream;
+import org.antlr.v4.runtime.CharStreams;
+import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.tree.ParseTree;
 /**
  *
  * @author mauricio
@@ -164,6 +174,7 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         menuEjecutar.setText("Ejecutar");
 
         itemAnalizar.setText("Analizar Código");
+        itemAnalizar.addActionListener(this::itemAnalizarActionPerformed);
         menuEjecutar.add(itemAnalizar);
 
         jMenuBar1.add(menuEjecutar);
@@ -291,6 +302,107 @@ public class VentanaPrincipal extends javax.swing.JFrame {
             panelPestañas.remove(indiceActivo);
         }
     }//GEN-LAST:event_itemCerrarArchivoActionPerformed
+
+    private void itemAnalizarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_itemAnalizarActionPerformed
+        Component tabActivo = panelPestañas.getSelectedComponent();
+        if (tabActivo instanceof JScrollPane)
+        {
+            try
+            {
+                JScrollPane scroll = (JScrollPane) tabActivo;
+                JTextPane editor = (JTextPane) scroll.getViewport().getView();
+                File archivo = (File) editor.getClientProperty("archivoFisico");
+                String codigoTexto = editor.getText();
+                if (archivo != null)
+                {
+                    String nombreArchivo = archivo.getName();
+                    consolaSalida.setText(" INICIANDO ANÁLISIS \n");
+                    consolaSalida.append("Archivo: " + nombreArchivo + "\n\n");
+                    CharStream input = CharStreams.fromString(codigoTexto);
+                    if (nombreArchivo.endsWith(".z"))
+                    {
+                        ZetarianoLexer lexer = new ZetarianoLexer(input);
+                        CommonTokenStream tokens = new CommonTokenStream(lexer);
+                        ZetarianoParser parser = new ZetarianoParser(tokens);
+                        ControladorErrores controlador = new ControladorErrores(consolaSalida);
+                        lexer.removeErrorListeners();
+                        parser.removeErrorListeners();
+                        lexer.addErrorListener(controlador);
+                        parser.addErrorListener(controlador);
+                        ParseTree tree = parser.programa();
+                        if (!controlador.hayErrores)
+                        {
+                            consolaSalida.append("Análisis Zetariano completado con éxito.\n");
+                            consolaSalida.append("AST: " + tree.toStringTree(parser) + "\n");
+                        }
+                        else
+                        {
+                            consolaSalida.append("Se encontraron errores en el código Zetariano. No se puede generar el AST.\n");
+                        }
+                    }
+                    else if (nombreArchivo.endsWith(".y"))
+                    {
+                        YLexer lexer = new YLexer(input);
+                        CommonTokenStream tokens = new CommonTokenStream(lexer);
+                        YParser parser = new YParser(tokens);
+                        ControladorErrores controlador = new ControladorErrores(consolaSalida);
+                        lexer.removeErrorListeners();
+                        parser.removeErrorListeners();
+                        lexer.addErrorListener(controlador);
+                        parser.addErrorListener(controlador);
+                        ParseTree tree = parser.programa();
+                        if (!controlador.hayErrores)
+                        {
+                            consolaSalida.append("Análisis Y? completado con éxito.\n");
+                            consolaSalida.append("AST: " + tree.toStringTree(parser) + "\n");
+                        }
+                        else
+                        {
+                            consolaSalida.append("Se encontraron errores en el código Y?. No se puede generar el AST.\n");
+                        }
+                    }
+                    else if (nombreArchivo.endsWith(".pig"))
+                    {
+                        PigLatinLexer lexer = new PigLatinLexer(input);
+                        CommonTokenStream tokens = new CommonTokenStream(lexer);
+                        PigLatinParser parser = new PigLatinParser(tokens);
+                        ControladorErrores controlador = new ControladorErrores(consolaSalida);
+                        lexer.removeErrorListeners();
+                        parser.removeErrorListeners();
+                        lexer.addErrorListener(controlador);
+                        parser.addErrorListener(controlador);
+                        ParseTree tree = parser.programa();
+                        if (!controlador.hayErrores)
+                        {
+                            consolaSalida.append("Análisis Pig Latin completado con éxito.\n");
+                            consolaSalida.append("AST: " + tree.toStringTree(parser) + "\n");
+                        }
+                        else
+                        {
+                            consolaSalida.append("Se encontraron errores en el código Pig Latin. No se puede generar el AST.\n");
+                        }
+                    }
+                    else
+                    {
+                        consolaSalida.append("No se reconoce la extensión para el análisis.\n");
+                    }
+                    consolaSalida.append("\n");
+                }
+                else
+                {
+                    JOptionPane.showMessageDialog(this, "El archivo no tiene una ruta establecida debes guardarlo primero.", "Aviso", JOptionPane.WARNING_MESSAGE);
+                }
+            }
+            catch (Exception e)
+            {
+                consolaSalida.append("Error crítico durante el análisis: " + e.getMessage() + "\n");
+            }
+        }
+        else
+        {
+            JOptionPane.showMessageDialog(this, "No hay ningún archivo abierto para analizar.", "Aviso", JOptionPane.WARNING_MESSAGE);
+        }
+    }//GEN-LAST:event_itemAnalizarActionPerformed
 
     /**
      * @param args the command line arguments
