@@ -20,6 +20,8 @@ import mycompany.contacto_3xtrat3rr3str3d.YLexer;
 import mycompany.contacto_3xtrat3rr3str3d.YParser;
 import mycompany.contacto_3xtrat3rr3str3d.ZetarianoLexer;
 import mycompany.contacto_3xtrat3rr3str3d.ZetarianoParser;
+import mycompany.contacto_3xtrat3rr3str3d.semantico.TablaSimbolos;
+import mycompany.contacto_3xtrat3rr3str3d.semantico.ZetarianoCustomVisitor;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -32,6 +34,7 @@ public class VentanaPrincipal extends javax.swing.JFrame {
     
     private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(VentanaPrincipal.class.getName());
     private File carpetaProyectoActual;
+    private TablaSimbolos tablaMemoria = new TablaSimbolos();
     /**
      * Creates new form VentanaPrincipal
      */
@@ -332,8 +335,19 @@ public class VentanaPrincipal extends javax.swing.JFrame {
                         ParseTree tree = parser.programa();
                         if (!controlador.hayErrores)
                         {
-                            consolaSalida.append("Análisis Zetariano completado con éxito.\n");
-                            consolaSalida.append("AST: " + tree.toStringTree(parser) + "\n");
+                            consolaSalida.append("Análisis Sintáctico Zetariano completado con éxito.\n");
+                            tablaMemoria.limpiar();
+                            ZetarianoCustomVisitor visitor = new ZetarianoCustomVisitor(tablaMemoria, consolaSalida);
+                            visitor.visit(tree);
+                            if (!visitor.hayErroresSemanticos)
+                            {
+                                consolaSalida.append("Análisis Semántico completado con éxito.\n");
+                                consolaSalida.append(tablaMemoria.imprimirTabla());
+                            }
+                            else
+                            {
+                                consolaSalida.append("Compilación detenida por errores semánticos.\n");
+                            }
                         }
                         else
                         {
