@@ -12,6 +12,9 @@ public class Simbolo
     private int columna;
     private int dimensionArreglo; 
     private List<TipoDato> tiposParametros;
+    private int offset;
+    private boolean enHeap;
+    private boolean inicializado;
     public Simbolo(String nombre, String tipo, String categoria, int linea, int columna)
     {
         this.nombre = nombre;
@@ -21,6 +24,9 @@ public class Simbolo
         this.columna = columna;
         this.dimensionArreglo = 0; 
         this.tiposParametros = new ArrayList<>();
+        this.offset = -1;
+        this.enHeap = false;
+        this.inicializado = false;
     }
 
     public String getNombre()
@@ -55,9 +61,35 @@ public class Simbolo
     {
         return tiposParametros;
     }
-
     public void agregarParametro(TipoDato tipoParam)
     {
         this.tiposParametros.add(tipoParam);
+    }
+    
+    public int getOffset()
+    {
+        return offset;
+    }
+    public void setOffset(int offset)
+    {
+        this.offset = offset;
+    }
+    
+    public boolean isEnHeap()
+    {
+        return enHeap;
+    }
+    public void setEnHeap(boolean enHeap)
+    {
+        this.enHeap = enHeap;
+    }
+
+    public boolean isInicializado()
+    {
+        return inicializado;
+    }
+    public void setInicializado(boolean inicializado)
+    {
+        this.inicializado = inicializado;
     }
 }

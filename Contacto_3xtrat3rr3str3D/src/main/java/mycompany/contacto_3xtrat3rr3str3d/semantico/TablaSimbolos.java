@@ -7,10 +7,14 @@ import java.util.Stack;
 public class TablaSimbolos
 {
     private Stack<Map<String, Simbolo>> pilaAmbitos;
+    private int offsetGlobal;
+    private int offsetLocal;
     public TablaSimbolos()
     {
         pilaAmbitos = new Stack<>();
         pilaAmbitos.push(new HashMap<>());
+        offsetGlobal = 0;
+        offsetLocal = 0;
     }
 
     public void entrarAmbito()
@@ -25,6 +29,10 @@ public class TablaSimbolos
             pilaAmbitos.pop();
         }
     }
+    public void resetearOffsetLocal() 
+    {
+        this.offsetLocal = 0;
+    }
 
     public boolean insertar(Simbolo simbolo)
     {
@@ -32,6 +40,24 @@ public class TablaSimbolos
         if (ambitoActual.containsKey(simbolo.getNombre()))
         {
             return false;
+        }
+        if (simbolo.getCategoria().equals("Metodo") || simbolo.getCategoria().equals("Clase") || simbolo.getCategoria().equals("Constructor"))
+        {
+            simbolo.setOffset(-1);
+            simbolo.setEnHeap(true);
+        }
+        else
+        {
+            if (pilaAmbitos.size() == 1)
+            {
+                simbolo.setOffset(offsetGlobal++);
+                simbolo.setEnHeap(true);
+            }
+            else
+            {
+                simbolo.setOffset(offsetLocal++);
+                simbolo.setEnHeap(false);
+            }
         }
         ambitoActual.put(simbolo.getNombre(), simbolo);
         return true;
@@ -52,6 +78,8 @@ public class TablaSimbolos
     {
         pilaAmbitos.clear();
         pilaAmbitos.push(new HashMap<>());
+        offsetGlobal = 0;
+        offsetLocal = 0;
     }
     public String imprimirTabla()
     {
@@ -63,7 +91,10 @@ public class TablaSimbolos
             sb.append("Ámbito ").append(tipoAmbito).append(":\n");
             for (Simbolo s : pilaAmbitos.get(i).values())
             {
-                sb.append(String.format("  -> [%s] %s : %s (Línea: %d, Columna: %d)\n", s.getCategoria(), s.getNombre(), s.getTipo(), s.getLinea(), s.getColumna()));
+                String ubicacion = s.isEnHeap() ? "Heap" : "Stack";
+                String coord = s.getOffset() == -1 ? "N/A" : String.valueOf(s.getOffset());
+                sb.append(String.format("  -> [%s] %s : %s (Línea: %d, Columna: %d) | Posición: %s[%s]\n", s.getCategoria(), s.getNombre(), s.getTipo(), s.getLinea(),
+                        s.getColumna(), ubicacion, coord));
             }   
         }
         sb.append("\n");

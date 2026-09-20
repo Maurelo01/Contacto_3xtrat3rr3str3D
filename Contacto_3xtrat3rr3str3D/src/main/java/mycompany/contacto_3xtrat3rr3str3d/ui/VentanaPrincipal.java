@@ -20,6 +20,7 @@ import mycompany.contacto_3xtrat3rr3str3d.YLexer;
 import mycompany.contacto_3xtrat3rr3str3d.YParser;
 import mycompany.contacto_3xtrat3rr3str3d.ZetarianoLexer;
 import mycompany.contacto_3xtrat3rr3str3d.ZetarianoParser;
+import mycompany.contacto_3xtrat3rr3str3d.semantico.GeneradorC3D;
 import mycompany.contacto_3xtrat3rr3str3d.semantico.TablaSimbolos;
 import mycompany.contacto_3xtrat3rr3str3d.semantico.ZetarianoCustomVisitor;
 import org.antlr.v4.runtime.CharStream;
@@ -342,7 +343,11 @@ public class VentanaPrincipal extends javax.swing.JFrame {
                             if (!visitor.hayErroresSemanticos)
                             {
                                 consolaSalida.append("Análisis Semántico completado con éxito.\n");
-                                consolaSalida.append(tablaMemoria.imprimirTabla());
+                                // consolaSalida.append(tablaMemoria.imprimirTabla());
+                                consolaSalida.append("\nCÓDIGO C3D GENERADO\n");
+                                GeneradorC3D gen = GeneradorC3D.getInstancia();
+                                consolaSalida.append(gen.obtenerCodigoCompilable());
+                                consolaSalida.append("\n");
                             }
                             else
                             {
