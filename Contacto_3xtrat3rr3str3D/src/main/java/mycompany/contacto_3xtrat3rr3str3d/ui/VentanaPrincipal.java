@@ -22,6 +22,7 @@ import mycompany.contacto_3xtrat3rr3str3d.ZetarianoLexer;
 import mycompany.contacto_3xtrat3rr3str3d.ZetarianoParser;
 import mycompany.contacto_3xtrat3rr3str3d.semantico.GeneradorC3D;
 import mycompany.contacto_3xtrat3rr3str3d.semantico.TablaSimbolos;
+import mycompany.contacto_3xtrat3rr3str3d.semantico.YCustomVisitor;
 import mycompany.contacto_3xtrat3rr3str3d.semantico.ZetarianoCustomVisitor;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
@@ -372,12 +373,22 @@ public class VentanaPrincipal extends javax.swing.JFrame {
                         ParseTree tree = parser.programa();
                         if (!controlador.hayErrores)
                         {
-                            consolaSalida.append("Análisis Y? completado con éxito.\n");
-                            consolaSalida.append("AST: " + tree.toStringTree(parser) + "\n");
-                        }
-                        else
-                        {
-                            consolaSalida.append("Se encontraron errores en el código Y?. No se puede generar el AST.\n");
+                            consolaSalida.append("Análisis Sintáctico Y? completado con éxito.\n");
+                            tablaMemoria.limpiar();
+                            YCustomVisitor visitor = new YCustomVisitor(tablaMemoria, consolaSalida);
+                            visitor.visit(tree);
+                            if (!visitor.hayErroresSemanticos)
+                            {
+                                consolaSalida.append("Análisis Semántico Y? completado con éxito.\n");
+                                consolaSalida.append("\nCÓDIGO C3D GENERADO\n");
+                                GeneradorC3D gen = GeneradorC3D.getInstancia();
+                                consolaSalida.append(gen.obtenerCodigoCompilable());
+                                consolaSalida.append("\n");
+                            }
+                            else
+                            {
+                                consolaSalida.append("Compilación detenida por errores semánticos en Y?.\n");
+                            }
                         }
                     }
                     else if (nombreArchivo.endsWith(".pig"))
