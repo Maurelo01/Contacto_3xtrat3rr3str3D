@@ -19,6 +19,6 @@ public class ControladorErrores extends BaseErrorListener
     public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol, int line, int charPositionInLine, String msg, RecognitionException e)
     {
         hayErrores = true;
-        consola.append("❌ Error sintáctico en línea " + line + ", columna " + charPositionInLine + ": " + msg + "\n");
+        consola.append("Error sintáctico en línea " + line + ", columna " + charPositionInLine + ": " + msg + "\n");
     }
 }
