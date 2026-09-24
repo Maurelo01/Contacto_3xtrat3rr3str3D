@@ -13,7 +13,6 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextPane;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
-import javax.swing.text.DefaultStyledDocument;
 import mycompany.contacto_3xtrat3rr3str3d.PigLatinLexer;
 import mycompany.contacto_3xtrat3rr3str3d.PigLatinParser;
 import mycompany.contacto_3xtrat3rr3str3d.YLexer;
@@ -21,6 +20,7 @@ import mycompany.contacto_3xtrat3rr3str3d.YParser;
 import mycompany.contacto_3xtrat3rr3str3d.ZetarianoLexer;
 import mycompany.contacto_3xtrat3rr3str3d.ZetarianoParser;
 import mycompany.contacto_3xtrat3rr3str3d.semantico.GeneradorC3D;
+import mycompany.contacto_3xtrat3rr3str3d.semantico.PigLatinCustomVisitor;
 import mycompany.contacto_3xtrat3rr3str3d.semantico.TablaSimbolos;
 import mycompany.contacto_3xtrat3rr3str3d.semantico.YCustomVisitor;
 import mycompany.contacto_3xtrat3rr3str3d.semantico.ZetarianoCustomVisitor;
@@ -404,8 +404,23 @@ public class VentanaPrincipal extends javax.swing.JFrame {
                         ParseTree tree = parser.programa();
                         if (!controlador.hayErrores)
                         {
-                            consolaSalida.append("Análisis Pig Latin completado con éxito.\n");
-                            consolaSalida.append("AST: " + tree.toStringTree(parser) + "\n");
+                            consolaSalida.append("Análisis Sintáctico Pig Latin completado con éxito.\n");
+                            tablaMemoria.limpiar();
+                            GeneradorC3D.getInstancia().limpiar();
+                            PigLatinCustomVisitor visitor = new PigLatinCustomVisitor(tablaMemoria, consolaSalida);
+                            visitor.visit(tree);
+                            if (!visitor.hayErroresSemanticos)
+                            {
+                                consolaSalida.append("Análisis Semántico Pig Latin completado con éxito.\n");
+                                consolaSalida.append("\nCÓDIGO C3D GENERADO\n");
+                                GeneradorC3D gen = GeneradorC3D.getInstancia();
+                                consolaSalida.append(gen.obtenerCodigoCompilable());
+                                consolaSalida.append("\n");
+                            }
+                            else
+                            {
+                                consolaSalida.append("Compilación detenida por errores semánticos en Pig Latin.\n");
+                            }
                         }
                         else
                         {

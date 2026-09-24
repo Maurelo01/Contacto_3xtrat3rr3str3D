@@ -9,7 +9,7 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
     private TablaSimbolos tabla;
     private JTextArea consola;
     public boolean hayErroresSemanticos = false;
-    private GeneradorC3D gen = GeneradorC3D.getInstancia();
+    private GeneradorC3D generador = GeneradorC3D.getInstancia();
     public ZetarianoCustomVisitor(TablaSimbolos tabla, JTextArea consola)
     {
         this.tabla = tabla;
@@ -138,11 +138,11 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
             {
                 if (nuevoSimbolo.isEnHeap())
                 {
-                    gen.agregarSetHeap(String.valueOf(nuevoSimbolo.getOffset()), resExpr.getValorC3D());
+                    generador.agregarSetHeap(String.valueOf(nuevoSimbolo.getOffset()), resExpr.getValorC3D());
                 }
                 else
                 {
-                    gen.agregarSetStack(String.valueOf(nuevoSimbolo.getOffset()), resExpr.getValorC3D());
+                    generador.agregarSetStack(String.valueOf(nuevoSimbolo.getOffset()), resExpr.getValorC3D());
                 }
             }
         }
@@ -243,14 +243,14 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
             hayErroresSemanticos = true;
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
-        String temporal = gen.generarTemporal();
+        String temporal = generador.generarTemporal();
         if (sim.isEnHeap())
         {
-            gen.agregarGetHeap(temporal, String.valueOf(sim.getOffset()));
+            generador.agregarGetHeap(temporal, String.valueOf(sim.getOffset()));
         }
         else
         {
-            gen.agregarGetStack(temporal, String.valueOf(sim.getOffset()));
+            generador.agregarGetStack(temporal, String.valueOf(sim.getOffset()));
         }
         return new ResultadoC3D(TipoDato.valueOf(sim.getTipo()), temporal);
     }
@@ -278,8 +278,8 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
             hayErroresSemanticos = true;
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
-        String temporal = gen.generarTemporal();
-        gen.agregarAsignacion(temporal, izq.getValorC3D(), operador, der.getValorC3D());
+        String temporal = generador.generarTemporal();
+        generador.agregarAsignacion(temporal, izq.getValorC3D(), operador, der.getValorC3D());
         return new ResultadoC3D(tipoResultado, temporal);
     }
     
@@ -300,15 +300,15 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
             hayErroresSemanticos = true;
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
-        String temporal = gen.generarTemporal();
+        String temporal = generador.generarTemporal();
         String operador = ctx.POR() != null ? "*" : (ctx.DIVISION() != null ? "/" : "%");
         if (operador.equals("%"))
         {
-            gen.agregarAsignacion(temporal, "fmod(" + izq.getValorC3D() + ", " + der.getValorC3D() + ")");
+            generador.agregarAsignacion(temporal, "fmod(" + izq.getValorC3D() + ", " + der.getValorC3D() + ")");
         }
         else
         {
-            gen.agregarAsignacion(temporal, izq.getValorC3D(), operador, der.getValorC3D());
+            generador.agregarAsignacion(temporal, izq.getValorC3D(), operador, der.getValorC3D());
         }
         return new ResultadoC3D(tipoResultado, temporal);
     }
@@ -328,18 +328,18 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
         String operador = ctx.MAYOR() != null ? ">" : ctx.MAYOR_IGUAL() != null ? ">=" : ctx.MENOR() != null ? "<" : "<=";
-        String temporal = gen.generarTemporal();
-        String etVerdadera = gen.generarEtiqueta();
-        String etFalsa = gen.generarEtiqueta();
-        String etSalida = gen.generarEtiqueta();
-        gen.agregarSaltoCondicional(izq.getValorC3D(), operador, der.getValorC3D(), etVerdadera);
-        gen.agregarSaltoIncondicional(etFalsa);
-        gen.agregarEtiqueta(etVerdadera);
-        gen.agregarAsignacion(temporal, "1");
-        gen.agregarSaltoIncondicional(etSalida);
-        gen.agregarEtiqueta(etFalsa);
-        gen.agregarAsignacion(temporal, "0");
-        gen.agregarEtiqueta(etSalida);
+        String temporal = generador.generarTemporal();
+        String etVerdadera = generador.generarEtiqueta();
+        String etFalsa = generador.generarEtiqueta();
+        String etSalida = generador.generarEtiqueta();
+        generador.agregarSaltoCondicional(izq.getValorC3D(), operador, der.getValorC3D(), etVerdadera);
+        generador.agregarSaltoIncondicional(etFalsa);
+        generador.agregarEtiqueta(etVerdadera);
+        generador.agregarAsignacion(temporal, "1");
+        generador.agregarSaltoIncondicional(etSalida);
+        generador.agregarEtiqueta(etFalsa);
+        generador.agregarAsignacion(temporal, "0");
+        generador.agregarEtiqueta(etSalida);
         return new ResultadoC3D(resultado, temporal);
     }
 
@@ -358,34 +358,34 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
         String operador = ctx.IGUALIGUAL() != null ? "==" : "!=";
-        String temporal = gen.generarTemporal();
-        String etVerdadera = gen.generarEtiqueta();
-        String etFalsa = gen.generarEtiqueta();
-        String etSalida = gen.generarEtiqueta();
-        gen.agregarSaltoCondicional(izq.getValorC3D(), operador, der.getValorC3D(), etVerdadera);
-        gen.agregarSaltoIncondicional(etFalsa);
-        gen.agregarEtiqueta(etVerdadera);
-        gen.agregarAsignacion(temporal, "1");
-        gen.agregarSaltoIncondicional(etSalida);
-        gen.agregarEtiqueta(etFalsa);
-        gen.agregarAsignacion(temporal, "0");
-        gen.agregarEtiqueta(etSalida);
+        String temporal = generador.generarTemporal();
+        String etVerdadera = generador.generarEtiqueta();
+        String etFalsa = generador.generarEtiqueta();
+        String etSalida = generador.generarEtiqueta();
+        generador.agregarSaltoCondicional(izq.getValorC3D(), operador, der.getValorC3D(), etVerdadera);
+        generador.agregarSaltoIncondicional(etFalsa);
+        generador.agregarEtiqueta(etVerdadera);
+        generador.agregarAsignacion(temporal, "1");
+        generador.agregarSaltoIncondicional(etSalida);
+        generador.agregarEtiqueta(etFalsa);
+        generador.agregarAsignacion(temporal, "0");
+        generador.agregarEtiqueta(etSalida);
         return new ResultadoC3D(resultado, temporal);
     }
 
     @Override
     public Object visitAndLogico(ZetarianoParser.AndLogicoContext ctx)
     {
-        String temporal = gen.generarTemporal();
-        String etFalsa = gen.generarEtiqueta();
-        String etVerdadera = gen.generarEtiqueta();
-        String etSalida = gen.generarEtiqueta();
+        String temporal = generador.generarTemporal();
+        String etFalsa = generador.generarEtiqueta();
+        String etVerdadera = generador.generarEtiqueta();
+        String etSalida = generador.generarEtiqueta();
         ResultadoC3D izq = (ResultadoC3D) visit(ctx.expresion(0));
         if (izq.getTipo() == TipoDato.ERROR)
         {
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
-        gen.agregarSaltoCondicional(izq.getValorC3D(), "==", "0", etFalsa);
+        generador.agregarSaltoCondicional(izq.getValorC3D(), "==", "0", etFalsa);
         ResultadoC3D der = (ResultadoC3D) visit(ctx.expresion(1));
         if (der.getTipo() == TipoDato.ERROR)
         {
@@ -398,30 +398,30 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
             hayErroresSemanticos = true;
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
-        gen.agregarSaltoCondicional(der.getValorC3D(), "==", "1", etVerdadera);
-        gen.agregarSaltoIncondicional(etFalsa);
-        gen.agregarEtiqueta(etVerdadera);
-        gen.agregarAsignacion(temporal, "1");
-        gen.agregarSaltoIncondicional(etSalida);
-        gen.agregarEtiqueta(etFalsa);
-        gen.agregarAsignacion(temporal, "0");
-        gen.agregarEtiqueta(etSalida);
+        generador.agregarSaltoCondicional(der.getValorC3D(), "==", "1", etVerdadera);
+        generador.agregarSaltoIncondicional(etFalsa);
+        generador.agregarEtiqueta(etVerdadera);
+        generador.agregarAsignacion(temporal, "1");
+        generador.agregarSaltoIncondicional(etSalida);
+        generador.agregarEtiqueta(etFalsa);
+        generador.agregarAsignacion(temporal, "0");
+        generador.agregarEtiqueta(etSalida);
         return new ResultadoC3D(resultado, temporal);
     }
 
     @Override
     public Object visitOrLogico(ZetarianoParser.OrLogicoContext ctx)
     {
-        String temporal = gen.generarTemporal();
-        String etFalsa = gen.generarEtiqueta();
-        String etVerdadera = gen.generarEtiqueta();
-        String etSalida = gen.generarEtiqueta();
+        String temporal = generador.generarTemporal();
+        String etFalsa = generador.generarEtiqueta();
+        String etVerdadera = generador.generarEtiqueta();
+        String etSalida = generador.generarEtiqueta();
         ResultadoC3D izq = (ResultadoC3D) visit(ctx.expresion(0));
         if (izq.getTipo() == TipoDato.ERROR)
         {
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
-        gen.agregarSaltoCondicional(izq.getValorC3D(), "==", "1", etVerdadera);
+        generador.agregarSaltoCondicional(izq.getValorC3D(), "==", "1", etVerdadera);
         ResultadoC3D der = (ResultadoC3D) visit(ctx.expresion(1));
         if (der.getTipo() == TipoDato.ERROR)
         {
@@ -434,14 +434,14 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
             hayErroresSemanticos = true;
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
-        gen.agregarSaltoCondicional(der.getValorC3D(), "==", "1", etVerdadera);
-        gen.agregarSaltoIncondicional(etFalsa);
-        gen.agregarEtiqueta(etVerdadera);
-        gen.agregarAsignacion(temporal, "1");
-        gen.agregarSaltoIncondicional(etSalida);
-        gen.agregarEtiqueta(etFalsa);
-        gen.agregarAsignacion(temporal, "0");
-        gen.agregarEtiqueta(etSalida);
+        generador.agregarSaltoCondicional(der.getValorC3D(), "==", "1", etVerdadera);
+        generador.agregarSaltoIncondicional(etFalsa);
+        generador.agregarEtiqueta(etVerdadera);
+        generador.agregarAsignacion(temporal, "1");
+        generador.agregarSaltoIncondicional(etSalida);
+        generador.agregarEtiqueta(etFalsa);
+        generador.agregarAsignacion(temporal, "0");
+        generador.agregarEtiqueta(etSalida);
         return new ResultadoC3D(resultado, temporal);
     }
 
@@ -455,8 +455,8 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
             hayErroresSemanticos = true;
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
-        String temporal = gen.generarTemporal();
-        gen.agregarAsignacion(temporal, "-" + tipo.getValorC3D());
+        String temporal = generador.generarTemporal();
+        generador.agregarAsignacion(temporal, "-" + tipo.getValorC3D());
         return new ResultadoC3D(resultado, temporal);
     }
 
@@ -471,8 +471,8 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
             hayErroresSemanticos = true;
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
-        String temporal = gen.generarTemporal();
-        gen.agregarAsignacion(temporal, "1", "-", tipo.getValorC3D());
+        String temporal = generador.generarTemporal();
+        generador.agregarAsignacion(temporal, "1", "-", tipo.getValorC3D());
         return new ResultadoC3D(resultado, temporal);
     }
 
@@ -507,11 +507,11 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
                 sim.setInicializado(true);
                 if (sim.isEnHeap())
                 {
-                    gen.agregarSetHeap(String.valueOf(sim.getOffset()), resExpr.getValorC3D());
+                    generador.agregarSetHeap(String.valueOf(sim.getOffset()), resExpr.getValorC3D());
                 }
                 else
                 {
-                    gen.agregarSetStack(String.valueOf(sim.getOffset()), resExpr.getValorC3D());
+                    generador.agregarSetStack(String.valueOf(sim.getOffset()), resExpr.getValorC3D());
                 }
             }
         }
@@ -521,7 +521,7 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
     @Override
     public Object visitCondicional(ZetarianoParser.CondicionalContext ctx)
     {
-        String etiquetaSalida = gen.generarEtiqueta();
+        String etiquetaSalida = generador.generarEtiqueta();
         for (int i = 0; i < ctx.expresion().size(); i++)
         {
             ResultadoC3D resCondicion = (ResultadoC3D) visit(ctx.expresion(i));
@@ -530,44 +530,44 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
                 consola.append("Error Semántico en línea " + ctx.getStart().getLine() + ": La condición del IF debe ser booleana.\n");
                 hayErroresSemanticos = true;
             }
-            String etiquetaFalsa = gen.generarEtiqueta();
-            gen.agregarSaltoCondicional(resCondicion.getValorC3D(), "==", "0", etiquetaFalsa);
+            String etiquetaFalsa = generador.generarEtiqueta();
+            generador.agregarSaltoCondicional(resCondicion.getValorC3D(), "==", "0", etiquetaFalsa);
             visit(ctx.bloque(i));
-            gen.agregarSaltoIncondicional(etiquetaSalida);
-            gen.agregarEtiqueta(etiquetaFalsa);
+            generador.agregarSaltoIncondicional(etiquetaSalida);
+            generador.agregarEtiqueta(etiquetaFalsa);
         }
         if (ctx.ELSE() != null)
         {
             visit(ctx.bloque(ctx.bloque().size() - 1));
         }
-        gen.agregarEtiqueta(etiquetaSalida);
+        generador.agregarEtiqueta(etiquetaSalida);
         return null;
     }
     
     @Override
     public Object visitBucleWhile(ZetarianoParser.BucleWhileContext ctx)
     {
-        String etiquetaInicio = gen.generarEtiqueta();
-        String etiquetaSalida = gen.generarEtiqueta();
-        gen.agregarEtiqueta(etiquetaInicio);
+        String etiquetaInicio = generador.generarEtiqueta();
+        String etiquetaSalida = generador.generarEtiqueta();
+        generador.agregarEtiqueta(etiquetaInicio);
         ResultadoC3D resCondicion = (ResultadoC3D) visit(ctx.expresion());
         if (resCondicion.getTipo() != TipoDato.BOOLEANO && resCondicion.getTipo() != TipoDato.ERROR)
         {
             consola.append("Error Semántico en línea " + ctx.getStart().getLine() + ": La condición del WHILE debe ser booleana.\n");
             hayErroresSemanticos = true;
         }
-        gen.agregarSaltoCondicional(resCondicion.getValorC3D(), "==", "0", etiquetaSalida);
+        generador.agregarSaltoCondicional(resCondicion.getValorC3D(), "==", "0", etiquetaSalida);
         visit(ctx.bloque());
-        gen.agregarSaltoIncondicional(etiquetaInicio);
-        gen.agregarEtiqueta(etiquetaSalida);
+        generador.agregarSaltoIncondicional(etiquetaInicio);
+        generador.agregarEtiqueta(etiquetaSalida);
         return null;
     }
     
     @Override
     public Object visitBucleDoWhile(ZetarianoParser.BucleDoWhileContext ctx)
     {
-        String etiquetaInicio = gen.generarEtiqueta();
-        gen.agregarEtiqueta(etiquetaInicio);
+        String etiquetaInicio = generador.generarEtiqueta();
+        generador.agregarEtiqueta(etiquetaInicio);
         visit(ctx.bloqueMetodo());
         ResultadoC3D resCondicion = (ResultadoC3D) visit(ctx.expresion());
         if (resCondicion.getTipo() != TipoDato.BOOLEANO && resCondicion.getTipo() != TipoDato.ERROR)
@@ -575,7 +575,7 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
             consola.append("Error Semántico en línea " + ctx.getStart().getLine() + ": La condición del DO WHILE debe ser booleana.\n");
             hayErroresSemanticos = true;
         }
-        gen.agregarSaltoCondicional(resCondicion.getValorC3D(), "==", "1", etiquetaInicio);
+        generador.agregarSaltoCondicional(resCondicion.getValorC3D(), "==", "1", etiquetaInicio);
         return null;
     }
     
@@ -587,9 +587,9 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
         {
             visit(ctx.declaracionFor());
         }
-        String etiquetaInicio = gen.generarEtiqueta();
-        String etiquetaSalida = gen.generarEtiqueta();
-        gen.agregarEtiqueta(etiquetaInicio);
+        String etiquetaInicio = generador.generarEtiqueta();
+        String etiquetaSalida = generador.generarEtiqueta();
+        generador.agregarEtiqueta(etiquetaInicio);
         if (ctx.expresion() != null)
         {
             ResultadoC3D resCondicion = (ResultadoC3D) visit(ctx.expresion());
@@ -598,15 +598,15 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
                 consola.append("Error Semántico en línea " + ctx.getStart().getLine() + ": La condición del FOR debe ser booleana.\n");
                 hayErroresSemanticos = true;
             }
-            gen.agregarSaltoCondicional(resCondicion.getValorC3D(), "==", "0", etiquetaSalida);
+            generador.agregarSaltoCondicional(resCondicion.getValorC3D(), "==", "0", etiquetaSalida);
         }
         visit(ctx.bloque());
         if (ctx.actualizacionFor() != null)
         {
             visit(ctx.actualizacionFor());
         }
-        gen.agregarSaltoIncondicional(etiquetaInicio);
-        gen.agregarEtiqueta(etiquetaSalida);
+        generador.agregarSaltoIncondicional(etiquetaInicio);
+        generador.agregarEtiqueta(etiquetaSalida);
         tabla.salirAmbito();
         return null;
     }
@@ -634,11 +634,11 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
             {
                 if (nuevoSimbolo.isEnHeap())
                 {
-                    gen.agregarSetHeap(String.valueOf(nuevoSimbolo.getOffset()), resExpr.getValorC3D());
+                    generador.agregarSetHeap(String.valueOf(nuevoSimbolo.getOffset()), resExpr.getValorC3D());
                 }
                 else 
                 {
-                    gen.agregarSetStack(String.valueOf(nuevoSimbolo.getOffset()), resExpr.getValorC3D());
+                    generador.agregarSetStack(String.valueOf(nuevoSimbolo.getOffset()), resExpr.getValorC3D());
                 }
             }
         }
@@ -649,21 +649,21 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
     public Object visitCondicionalSwitch(ZetarianoParser.CondicionalSwitchContext ctx)
     {
         ResultadoC3D resVariable = (ResultadoC3D) visit(ctx.expresion());
-        String etiquetaSalida = gen.generarEtiqueta();
+        String etiquetaSalida = generador.generarEtiqueta();
         for (ZetarianoParser.CasoContext casoCtx : ctx.caso())
         {
             ResultadoC3D resCaso = (ResultadoC3D) visit(casoCtx.expresion());
-            String etiquetaBloque = gen.generarEtiqueta();
-            String etiquetaSiguiente = gen.generarEtiqueta();
-            gen.agregarSaltoCondicional(resVariable.getValorC3D(), "==", resCaso.getValorC3D(), etiquetaBloque);
-            gen.agregarSaltoIncondicional(etiquetaSiguiente);
-            gen.agregarEtiqueta(etiquetaBloque);
+            String etiquetaBloque = generador.generarEtiqueta();
+            String etiquetaSiguiente = generador.generarEtiqueta();
+            generador.agregarSaltoCondicional(resVariable.getValorC3D(), "==", resCaso.getValorC3D(), etiquetaBloque);
+            generador.agregarSaltoIncondicional(etiquetaSiguiente);
+            generador.agregarEtiqueta(etiquetaBloque);
             for (ZetarianoParser.InstruccionContext inst : casoCtx.instruccion())
             {
                 visit(inst);
             }
-            gen.agregarSaltoIncondicional(etiquetaSalida);
-            gen.agregarEtiqueta(etiquetaSiguiente);
+            generador.agregarSaltoIncondicional(etiquetaSalida);
+            generador.agregarEtiqueta(etiquetaSiguiente);
         }
         if (ctx.casoDefault() != null)
         {
@@ -672,7 +672,7 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
                 visit(inst);
             }
         }
-        gen.agregarEtiqueta(etiquetaSalida);
+        generador.agregarEtiqueta(etiquetaSalida);
         return null;
     }
     
@@ -694,20 +694,20 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
             hayErroresSemanticos = true;
             return null;
         }
-        String temporalAnterior = gen.generarTemporal();
-        String temporalNuevo = gen.generarTemporal();
+        String temporalAnterior = generador.generarTemporal();
+        String temporalNuevo = generador.generarTemporal();
         String operador = ctx.MAS_MAS() != null ? "+" : "-";
         if (sim.isEnHeap())
         {
-            gen.agregarGetHeap(temporalAnterior, String.valueOf(sim.getOffset()));
-            gen.agregarAsignacion(temporalNuevo, temporalAnterior, operador, "1");
-            gen.agregarSetHeap(String.valueOf(sim.getOffset()), temporalNuevo);
+            generador.agregarGetHeap(temporalAnterior, String.valueOf(sim.getOffset()));
+            generador.agregarAsignacion(temporalNuevo, temporalAnterior, operador, "1");
+            generador.agregarSetHeap(String.valueOf(sim.getOffset()), temporalNuevo);
         }
         else
         {
-            gen.agregarGetStack(temporalAnterior, String.valueOf(sim.getOffset()));
-            gen.agregarAsignacion(temporalNuevo, temporalAnterior, operador, "1");
-            gen.agregarSetStack(String.valueOf(sim.getOffset()), temporalNuevo);
+            generador.agregarGetStack(temporalAnterior, String.valueOf(sim.getOffset()));
+            generador.agregarAsignacion(temporalNuevo, temporalAnterior, operador, "1");
+            generador.agregarSetStack(String.valueOf(sim.getOffset()), temporalNuevo);
         }
         return null;
     }
@@ -720,15 +720,15 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
             ResultadoC3D resExpr = (ResultadoC3D) visit(ctx.expresion());
             if (resExpr.getTipo() == TipoDato.ENTERO || resExpr.getTipo() == TipoDato.BOOLEANO)
             {
-                gen.agregarPrint("d", "(int)" + resExpr.getValorC3D());
+                generador.agregarPrint("d", "(int)" + resExpr.getValorC3D());
             }
             else if (resExpr.getTipo() == TipoDato.DECIMAL)
             {
-                gen.agregarPrint("f", resExpr.getValorC3D());
+                generador.agregarPrint("f", resExpr.getValorC3D());
             }
             else if (resExpr.getTipo() == TipoDato.CADENA) 
             {
-                gen.agregarPrint("s", resExpr.getValorC3D());
+                generador.agregarPrint("s", resExpr.getValorC3D());
             }
             else
             {
@@ -738,7 +738,7 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
         }
         if (ctx.PRINTLN() != null)
         {
-            gen.agregarPrint("c", "10"); 
+            generador.agregarPrint("c", "10"); 
         }
         return null;
     }
