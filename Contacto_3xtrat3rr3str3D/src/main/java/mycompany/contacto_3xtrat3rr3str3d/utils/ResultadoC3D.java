@@ -1,4 +1,6 @@
-package mycompany.contacto_3xtrat3rr3str3d.semantico;
+package mycompany.contacto_3xtrat3rr3str3d.utils;
+
+import mycompany.contacto_3xtrat3rr3str3d.simbolos.TipoDato;
 
 public class ResultadoC3D
 {

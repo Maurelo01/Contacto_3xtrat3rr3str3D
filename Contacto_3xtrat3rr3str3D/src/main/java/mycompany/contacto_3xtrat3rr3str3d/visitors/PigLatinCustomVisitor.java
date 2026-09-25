@@ -1,15 +1,19 @@
-package mycompany.contacto_3xtrat3rr3str3d.semantico;
+package mycompany.contacto_3xtrat3rr3str3d.visitors;
 
+import mycompany.contacto_3xtrat3rr3str3d.simbolos.*;
+import mycompany.contacto_3xtrat3rr3str3d.c3d.GeneradorFuncionesNativas;
+import mycompany.contacto_3xtrat3rr3str3d.c3d.GeneradorC3D;
 import javax.swing.JTextArea;
 import mycompany.contacto_3xtrat3rr3str3d.PigLatinBaseVisitor;
 import mycompany.contacto_3xtrat3rr3str3d.PigLatinParser;
+import mycompany.contacto_3xtrat3rr3str3d.utils.*;
 
 public class PigLatinCustomVisitor extends PigLatinBaseVisitor<Object>
 {
     private TablaSimbolos tabla;
     private JTextArea consola;
     public boolean hayErroresSemanticos = false;
-    private GeneradorC3D gen = GeneradorC3D.getInstancia();
+    private GeneradorC3D generador = GeneradorC3D.getInstancia();
     public PigLatinCustomVisitor(TablaSimbolos tabla, JTextArea consola)
     {
         this.tabla = tabla;
@@ -42,7 +46,7 @@ public class PigLatinCustomVisitor extends PigLatinBaseVisitor<Object>
         int linea = ctx.ID().getSymbol().getLine();
         int columna = ctx.ID().getSymbol().getCharPositionInLine();
         TipoDato tipoNormalizado = ControlTipos.normalizarTipo(tipoStr);
-        Simbolo nuevoSimbolo = new Simbolo(id, tipoNormalizado.name(), "Variable", linea, columna);
+        SimboloVariable nuevoSimbolo = new SimboloVariable(id, tipoNormalizado, linea, columna);
         if (tabla.buscar(id) != null)
         {
             consola.append("Error Semántico en línea " + linea + ": La variable '" + id + "' ya ha sido declarada.\n");
@@ -69,11 +73,11 @@ public class PigLatinCustomVisitor extends PigLatinBaseVisitor<Object>
             {
                 if (nuevoSimbolo.isEnHeap())
                 {
-                    gen.agregarSetHeap(String.valueOf(nuevoSimbolo.getOffset()), resExpr.getValorC3D());
+                    generador.agregarSetHeap(String.valueOf(nuevoSimbolo.getOffset()), resExpr.getValorC3D());
                 }
                 else
                 {
-                    gen.agregarSetStack(String.valueOf(nuevoSimbolo.getOffset()), resExpr.getValorC3D());
+                    generador.agregarSetStack(String.valueOf(nuevoSimbolo.getOffset()), resExpr.getValorC3D());
                 }
             }
         }
@@ -100,22 +104,22 @@ public class PigLatinCustomVisitor extends PigLatinBaseVisitor<Object>
             hayErroresSemanticos = true;
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
-        if (!sim.isInicializado() && !sim.isEnHeap())
+        if (sim instanceof SimboloVariable && !((SimboloVariable)sim).isInicializado() && !sim.isEnHeap())
         {
             consola.append("Error Semántico en línea " + linea + ": La variable local '" + idVariable + "' no está inicializada.\n");
             hayErroresSemanticos = true;
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
-        String temporal = gen.generarTemporal();
+        String temporal = generador.generarTemporal();
         if (sim.isEnHeap())
         {
-            gen.agregarGetHeap(temporal, String.valueOf(sim.getOffset()));
+            generador.agregarGetHeap(temporal, String.valueOf(sim.getOffset()));
         }
         else
         {
-            gen.agregarGetStack(temporal, String.valueOf(sim.getOffset()));
+            generador.agregarGetStack(temporal, String.valueOf(sim.getOffset()));
         }
-        return new ResultadoC3D(TipoDato.valueOf(sim.getTipo()), temporal);
+        return new ResultadoC3D(sim.getTipo(), temporal);
     }
     
     // Impresion
@@ -130,15 +134,16 @@ public class PigLatinCustomVisitor extends PigLatinBaseVisitor<Object>
             {
                 if (resExpr.getTipo() == TipoDato.ENTERO || resExpr.getTipo() == TipoDato.BOOLEANO)
                 {
-                    gen.agregarPrint("d", "(int)" + resExpr.getValorC3D());
+                    generador.agregarPrint("d", "(int)" + resExpr.getValorC3D());
                 }
                 else if (resExpr.getTipo() == TipoDato.DECIMAL)
                 {
-                    gen.agregarPrint("f", resExpr.getValorC3D());
+                    generador.agregarPrint("f", resExpr.getValorC3D());
                 }
                 else if (resExpr.getTipo() == TipoDato.CADENA)
                 {
-                    gen.agregarPrint("s", resExpr.getValorC3D());
+                    generador.agregarFuncionNativa(GeneradorFuncionesNativas.getNativaImprimirString());
+                    generador.agregarLlamadaNativa("nativa_imprimir_string", resExpr.getValorC3D());
                 }
                 else
                 {
@@ -147,7 +152,7 @@ public class PigLatinCustomVisitor extends PigLatinBaseVisitor<Object>
                 }
             }
         }
-        gen.agregarPrint("c", "10");
+        generador.agregarPrint("c", "10");
         return null;
     }
     
@@ -168,21 +173,21 @@ public class PigLatinCustomVisitor extends PigLatinBaseVisitor<Object>
         ResultadoC3D resExpr = (ResultadoC3D) visit(ctx.expresion());
         if (resExpr != null && resExpr.getTipo() != TipoDato.ERROR)
         {
-            if (!ControlTipos.esAsignacionValida(TipoDato.valueOf(sim.getTipo()), resExpr.getTipo()))
+            if (!ControlTipos.esAsignacionValida(sim.getTipo(), resExpr.getTipo()))
             {
                 consola.append("Error Semántico en línea " + linea + ": Tipos incompatibles para '" + idVariable + "'.\n");
                 hayErroresSemanticos = true;
             }
             else
             {
-                sim.setInicializado(true);
+                if (sim instanceof SimboloVariable) ((SimboloVariable) sim).setInicializado(true);
                 if (sim.isEnHeap())
                 {
-                    gen.agregarSetHeap(String.valueOf(sim.getOffset()), resExpr.getValorC3D());
+                    generador.agregarSetHeap(String.valueOf(sim.getOffset()), resExpr.getValorC3D());
                 }
                 else
                 {
-                    gen.agregarSetStack(String.valueOf(sim.getOffset()), resExpr.getValorC3D());
+                    generador.agregarSetStack(String.valueOf(sim.getOffset()), resExpr.getValorC3D());
                 }
             }
         }
@@ -209,20 +214,20 @@ public class PigLatinCustomVisitor extends PigLatinBaseVisitor<Object>
             hayErroresSemanticos = true;
             return null;
         }
-        String temporalAnterior = gen.generarTemporal();
-        String temporalNuevo = gen.generarTemporal();
+        String temporalAnterior = generador.generarTemporal();
+        String temporalNuevo = generador.generarTemporal();
         String operador = ctx.MAS_ABREVIADO() != null ? "+" : "-";
         if (sim.isEnHeap())
         {
-            gen.agregarGetHeap(temporalAnterior, String.valueOf(sim.getOffset()));
-            gen.agregarAsignacion(temporalNuevo, temporalAnterior, operador, "1");
-            gen.agregarSetHeap(String.valueOf(sim.getOffset()), temporalNuevo);
+            generador.agregarGetHeap(temporalAnterior, String.valueOf(sim.getOffset()));
+            generador.agregarAsignacion(temporalNuevo, temporalAnterior, operador, "1");
+            generador.agregarSetHeap(String.valueOf(sim.getOffset()), temporalNuevo);
         }
         else
         {
-            gen.agregarGetStack(temporalAnterior, String.valueOf(sim.getOffset()));
-            gen.agregarAsignacion(temporalNuevo, temporalAnterior, operador, "1");
-            gen.agregarSetStack(String.valueOf(sim.getOffset()), temporalNuevo);
+            generador.agregarGetStack(temporalAnterior, String.valueOf(sim.getOffset()));
+            generador.agregarAsignacion(temporalNuevo, temporalAnterior, operador, "1");
+            generador.agregarSetStack(String.valueOf(sim.getOffset()), temporalNuevo);
         }
         return null;
     }
@@ -253,8 +258,8 @@ public class PigLatinCustomVisitor extends PigLatinBaseVisitor<Object>
             hayErroresSemanticos = true;
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
-        String temporal = gen.generarTemporal();
-        gen.agregarAsignacion(temporal, izq.getValorC3D(), operador, der.getValorC3D());
+        String temporal = generador.generarTemporal();
+        generador.agregarAsignacion(temporal, izq.getValorC3D(), operador, der.getValorC3D());
         return new ResultadoC3D(tipoResultado, temporal);
     }
 
@@ -274,15 +279,15 @@ public class PigLatinCustomVisitor extends PigLatinBaseVisitor<Object>
             hayErroresSemanticos = true;
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
-        String temporal = gen.generarTemporal();
+        String temporal = generador.generarTemporal();
         String operador = ctx.POR() != null ? "*" : (ctx.DIVISION() != null ? "/" : "%");
         if (operador.equals("%"))
         {
-            gen.agregarAsignacion(temporal, "fmod(" + izq.getValorC3D() + ", " + der.getValorC3D() + ")");
+            generador.agregarAsignacion(temporal, "fmod(" + izq.getValorC3D() + ", " + der.getValorC3D() + ")");
         }
         else
         {
-            gen.agregarAsignacion(temporal, izq.getValorC3D(), operador, der.getValorC3D());
+            generador.agregarAsignacion(temporal, izq.getValorC3D(), operador, der.getValorC3D());
         }
         return new ResultadoC3D(tipoResultado, temporal);
     }
@@ -306,18 +311,18 @@ public class PigLatinCustomVisitor extends PigLatinBaseVisitor<Object>
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
         String operador = ctx.MAYOR() != null ? ">" : ctx.MAYOR_IGUAL() != null ? ">=" : ctx.MENOR() != null ? "<" : "<=";
-        String temporal = gen.generarTemporal();
-        String etVerdadera = gen.generarEtiqueta();
-        String etFalsa = gen.generarEtiqueta();
-        String etSalida = gen.generarEtiqueta();
-        gen.agregarSaltoCondicional(izq.getValorC3D(), operador, der.getValorC3D(), etVerdadera);
-        gen.agregarSaltoIncondicional(etFalsa);
-        gen.agregarEtiqueta(etVerdadera);
-        gen.agregarAsignacion(temporal, "1");
-        gen.agregarSaltoIncondicional(etSalida);
-        gen.agregarEtiqueta(etFalsa);
-        gen.agregarAsignacion(temporal, "0");
-        gen.agregarEtiqueta(etSalida);
+        String temporal = generador.generarTemporal();
+        String etVerdadera = generador.generarEtiqueta();
+        String etFalsa = generador.generarEtiqueta();
+        String etSalida = generador.generarEtiqueta();
+        generador.agregarSaltoCondicional(izq.getValorC3D(), operador, der.getValorC3D(), etVerdadera);
+        generador.agregarSaltoIncondicional(etFalsa);
+        generador.agregarEtiqueta(etVerdadera);
+        generador.agregarAsignacion(temporal, "1");
+        generador.agregarSaltoIncondicional(etSalida);
+        generador.agregarEtiqueta(etFalsa);
+        generador.agregarAsignacion(temporal, "0");
+        generador.agregarEtiqueta(etSalida);
         return new ResultadoC3D(resultado, temporal);
     }
     @Override
@@ -337,74 +342,74 @@ public class PigLatinCustomVisitor extends PigLatinBaseVisitor<Object>
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
         String operador = ctx.IGUALIGUAL() != null ? "==" : "!=";
-        String temporal = gen.generarTemporal();
-        String etVerdadera = gen.generarEtiqueta();
-        String etFalsa = gen.generarEtiqueta();
-        String etSalida = gen.generarEtiqueta();
-        gen.agregarSaltoCondicional(izq.getValorC3D(), operador, der.getValorC3D(), etVerdadera);
-        gen.agregarSaltoIncondicional(etFalsa);
-        gen.agregarEtiqueta(etVerdadera);
-        gen.agregarAsignacion(temporal, "1");
-        gen.agregarSaltoIncondicional(etSalida);
-        gen.agregarEtiqueta(etFalsa);
-        gen.agregarAsignacion(temporal, "0");
-        gen.agregarEtiqueta(etSalida);
+        String temporal = generador.generarTemporal();
+        String etVerdadera = generador.generarEtiqueta();
+        String etFalsa = generador.generarEtiqueta();
+        String etSalida = generador.generarEtiqueta();
+        generador.agregarSaltoCondicional(izq.getValorC3D(), operador, der.getValorC3D(), etVerdadera);
+        generador.agregarSaltoIncondicional(etFalsa);
+        generador.agregarEtiqueta(etVerdadera);
+        generador.agregarAsignacion(temporal, "1");
+        generador.agregarSaltoIncondicional(etSalida);
+        generador.agregarEtiqueta(etFalsa);
+        generador.agregarAsignacion(temporal, "0");
+        generador.agregarEtiqueta(etSalida);
         return new ResultadoC3D(resultado, temporal);
     }
     @Override
     public Object visitAndLogico(PigLatinParser.AndLogicoContext ctx)
     {
-        String temporal = gen.generarTemporal();
-        String etFalsa = gen.generarEtiqueta();
-        String etVerdadera = gen.generarEtiqueta();
-        String etSalida = gen.generarEtiqueta();
+        String temporal = generador.generarTemporal();
+        String etFalsa = generador.generarEtiqueta();
+        String etVerdadera = generador.generarEtiqueta();
+        String etSalida = generador.generarEtiqueta();
         ResultadoC3D izq = (ResultadoC3D) visit(ctx.expresion(0));
         if (izq.getTipo() == TipoDato.ERROR)
         {
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
-        gen.agregarSaltoCondicional(izq.getValorC3D(), "==", "0", etFalsa);
+        generador.agregarSaltoCondicional(izq.getValorC3D(), "==", "0", etFalsa);
         ResultadoC3D der = (ResultadoC3D) visit(ctx.expresion(1));
         if (der.getTipo() == TipoDato.ERROR)
         {
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
-        gen.agregarSaltoCondicional(der.getValorC3D(), "==", "1", etVerdadera);
-        gen.agregarSaltoIncondicional(etFalsa);
-        gen.agregarEtiqueta(etVerdadera);
-        gen.agregarAsignacion(temporal, "1");
-        gen.agregarSaltoIncondicional(etSalida);
-        gen.agregarEtiqueta(etFalsa);
-        gen.agregarAsignacion(temporal, "0");
-        gen.agregarEtiqueta(etSalida);
+        generador.agregarSaltoCondicional(der.getValorC3D(), "==", "1", etVerdadera);
+        generador.agregarSaltoIncondicional(etFalsa);
+        generador.agregarEtiqueta(etVerdadera);
+        generador.agregarAsignacion(temporal, "1");
+        generador.agregarSaltoIncondicional(etSalida);
+        generador.agregarEtiqueta(etFalsa);
+        generador.agregarAsignacion(temporal, "0");
+        generador.agregarEtiqueta(etSalida);
         return new ResultadoC3D(TipoDato.BOOLEANO, temporal);
     }
     @Override
     public Object visitOrLogico(PigLatinParser.OrLogicoContext ctx)
     {
-        String temporal = gen.generarTemporal();
-        String etFalsa = gen.generarEtiqueta();
-        String etVerdadera = gen.generarEtiqueta();
-        String etSalida = gen.generarEtiqueta();
+        String temporal = generador.generarTemporal();
+        String etFalsa = generador.generarEtiqueta();
+        String etVerdadera = generador.generarEtiqueta();
+        String etSalida = generador.generarEtiqueta();
         ResultadoC3D izq = (ResultadoC3D) visit(ctx.expresion(0));
         if (izq.getTipo() == TipoDato.ERROR)
         {
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
-        gen.agregarSaltoCondicional(izq.getValorC3D(), "==", "1", etVerdadera);
+        generador.agregarSaltoCondicional(izq.getValorC3D(), "==", "1", etVerdadera);
         ResultadoC3D der = (ResultadoC3D) visit(ctx.expresion(1));
         if (der.getTipo() == TipoDato.ERROR)
         {
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
-        gen.agregarSaltoCondicional(der.getValorC3D(), "==", "1", etVerdadera);
-        gen.agregarSaltoIncondicional(etFalsa);
-        gen.agregarEtiqueta(etVerdadera);
-        gen.agregarAsignacion(temporal, "1");
-        gen.agregarSaltoIncondicional(etSalida);
-        gen.agregarEtiqueta(etFalsa);
-        gen.agregarAsignacion(temporal, "0");
-        gen.agregarEtiqueta(etSalida);
+        generador.agregarSaltoCondicional(der.getValorC3D(), "==", "1", etVerdadera);
+        generador.agregarSaltoIncondicional(etFalsa);
+        generador.agregarEtiqueta(etVerdadera);
+        generador.agregarAsignacion(temporal, "1");
+        generador.agregarSaltoIncondicional(etSalida);
+        generador.agregarEtiqueta(etFalsa);
+        generador.agregarAsignacion(temporal, "0");
+        generador.agregarEtiqueta(etSalida);
         return new ResultadoC3D(TipoDato.BOOLEANO, temporal);
     }
     @Override
@@ -418,8 +423,8 @@ public class PigLatinCustomVisitor extends PigLatinBaseVisitor<Object>
             hayErroresSemanticos = true;
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
-        String temporal = gen.generarTemporal();
-        gen.agregarAsignacion(temporal, "1", "-", tipo.getValorC3D());
+        String temporal = generador.generarTemporal();
+        generador.agregarAsignacion(temporal, "1", "-", tipo.getValorC3D());
         return new ResultadoC3D(resultado, temporal);
     }
     @Override
@@ -433,7 +438,7 @@ public class PigLatinCustomVisitor extends PigLatinBaseVisitor<Object>
     @Override
     public Object visitCondicional(PigLatinParser.CondicionalContext ctx)
     {
-        String etiquetaSalida = gen.generarEtiqueta();
+        String etiquetaSalida = generador.generarEtiqueta();
         for (int i = 0; i < ctx.expresion().size(); i++)
         {
             ResultadoC3D resCondicion = (ResultadoC3D) visit(ctx.expresion(i));
@@ -442,43 +447,43 @@ public class PigLatinCustomVisitor extends PigLatinBaseVisitor<Object>
                 consola.append("Error Semántico en línea " + ctx.getStart().getLine() + ": Condición SI debe ser booleana.\n");
                 hayErroresSemanticos = true;
             }
-            String etiquetaFalsa = gen.generarEtiqueta();
-            gen.agregarSaltoCondicional(resCondicion.getValorC3D(), "==", "0", etiquetaFalsa);
+            String etiquetaFalsa = generador.generarEtiqueta();
+            generador.agregarSaltoCondicional(resCondicion.getValorC3D(), "==", "0", etiquetaFalsa);
             visit(ctx.bloque(i));
-            gen.agregarSaltoIncondicional(etiquetaSalida);
-            gen.agregarEtiqueta(etiquetaFalsa);
+            generador.agregarSaltoIncondicional(etiquetaSalida);
+            generador.agregarEtiqueta(etiquetaFalsa);
         }
         // Bloque ALITER final
         if (ctx.bloque().size() > ctx.expresion().size())
         {
             visit(ctx.bloque(ctx.bloque().size() - 1));
         }
-        gen.agregarEtiqueta(etiquetaSalida);
+        generador.agregarEtiqueta(etiquetaSalida);
         return null;
     }
     @Override
     public Object visitBucleDum(PigLatinParser.BucleDumContext ctx)
     {
-        String etiquetaInicio = gen.generarEtiqueta();
-        String etiquetaSalida = gen.generarEtiqueta();
-        gen.agregarEtiqueta(etiquetaInicio);
+        String etiquetaInicio = generador.generarEtiqueta();
+        String etiquetaSalida = generador.generarEtiqueta();
+        generador.agregarEtiqueta(etiquetaInicio);
         ResultadoC3D resCondicion = (ResultadoC3D) visit(ctx.expresion());
         if (resCondicion.getTipo() != TipoDato.BOOLEANO && resCondicion.getTipo() != TipoDato.ERROR)
         {
             consola.append("Error Semántico en línea " + ctx.getStart().getLine() + ": Condición DUM debe ser booleana.\n");
             hayErroresSemanticos = true;
         }
-        gen.agregarSaltoCondicional(resCondicion.getValorC3D(), "==", "0", etiquetaSalida);
+        generador.agregarSaltoCondicional(resCondicion.getValorC3D(), "==", "0", etiquetaSalida);
         visit(ctx.bloque());
-        gen.agregarSaltoIncondicional(etiquetaInicio);
-        gen.agregarEtiqueta(etiquetaSalida);
+        generador.agregarSaltoIncondicional(etiquetaInicio);
+        generador.agregarEtiqueta(etiquetaSalida);
         return null;
     }
     @Override
     public Object visitBucleFacere(PigLatinParser.BucleFacereContext ctx)
     {
-        String etiquetaInicio = gen.generarEtiqueta();
-        gen.agregarEtiqueta(etiquetaInicio);
+        String etiquetaInicio = generador.generarEtiqueta();
+        generador.agregarEtiqueta(etiquetaInicio);
         visit(ctx.bloque());
         ResultadoC3D resCondicion = (ResultadoC3D) visit(ctx.expresion());
         if (resCondicion.getTipo() != TipoDato.BOOLEANO && resCondicion.getTipo() != TipoDato.ERROR)
@@ -486,7 +491,7 @@ public class PigLatinCustomVisitor extends PigLatinBaseVisitor<Object>
             consola.append("Error Semántico en línea " + ctx.getStart().getLine() + ": Condición FACERE DUM debe ser booleana.\n");
             hayErroresSemanticos = true;
         }
-        gen.agregarSaltoCondicional(resCondicion.getValorC3D(), "==", "1", etiquetaInicio);
+        generador.agregarSaltoCondicional(resCondicion.getValorC3D(), "==", "1", etiquetaInicio);
         return null;
     }
     @Override
@@ -494,20 +499,20 @@ public class PigLatinCustomVisitor extends PigLatinBaseVisitor<Object>
     {
         tabla.entrarAmbito();
         visit(ctx.declaracion());
-        String etiquetaInicio = gen.generarEtiqueta();
-        String etiquetaSalida = gen.generarEtiqueta();
-        gen.agregarEtiqueta(etiquetaInicio);
+        String etiquetaInicio = generador.generarEtiqueta();
+        String etiquetaSalida = generador.generarEtiqueta();
+        generador.agregarEtiqueta(etiquetaInicio);
         ResultadoC3D resCondicion = (ResultadoC3D) visit(ctx.expresion());
         if (resCondicion.getTipo() != TipoDato.BOOLEANO && resCondicion.getTipo() != TipoDato.ERROR)
         {
             consola.append("Error Semántico en línea " + ctx.getStart().getLine() + ": Condición PER debe ser booleana.\n");
             hayErroresSemanticos = true;
         }
-        gen.agregarSaltoCondicional(resCondicion.getValorC3D(), "==", "0", etiquetaSalida);
+        generador.agregarSaltoCondicional(resCondicion.getValorC3D(), "==", "0", etiquetaSalida);
         visit(ctx.bloque());
         visit(ctx.actualizacion());
-        gen.agregarSaltoIncondicional(etiquetaInicio);
-        gen.agregarEtiqueta(etiquetaSalida);
+        generador.agregarSaltoIncondicional(etiquetaInicio);
+        generador.agregarEtiqueta(etiquetaSalida);
         tabla.salirAmbito();
         return null;
     }
@@ -530,20 +535,20 @@ public class PigLatinCustomVisitor extends PigLatinBaseVisitor<Object>
                 hayErroresSemanticos = true;
                 return null;
             }
-            String temporalAnterior = gen.generarTemporal();
-            String temporalNuevo = gen.generarTemporal();
+            String temporalAnterior = generador.generarTemporal();
+            String temporalNuevo = generador.generarTemporal();
             String operador = ctx.MAS_ABREVIADO() != null ? "+" : "-";
             if (sim.isEnHeap())
             {
-                gen.agregarGetHeap(temporalAnterior, String.valueOf(sim.getOffset()));
-                gen.agregarAsignacion(temporalNuevo, temporalAnterior, operador, "1");
-                gen.agregarSetHeap(String.valueOf(sim.getOffset()), temporalNuevo);
+                generador.agregarGetHeap(temporalAnterior, String.valueOf(sim.getOffset()));
+                generador.agregarAsignacion(temporalNuevo, temporalAnterior, operador, "1");
+                generador.agregarSetHeap(String.valueOf(sim.getOffset()), temporalNuevo);
             }
             else
             {
-                gen.agregarGetStack(temporalAnterior, String.valueOf(sim.getOffset()));
-                gen.agregarAsignacion(temporalNuevo, temporalAnterior, operador, "1");
-                gen.agregarSetStack(String.valueOf(sim.getOffset()), temporalNuevo);
+                generador.agregarGetStack(temporalAnterior, String.valueOf(sim.getOffset()));
+                generador.agregarAsignacion(temporalNuevo, temporalAnterior, operador, "1");
+                generador.agregarSetStack(String.valueOf(sim.getOffset()), temporalNuevo);
             }
             return null;
         }

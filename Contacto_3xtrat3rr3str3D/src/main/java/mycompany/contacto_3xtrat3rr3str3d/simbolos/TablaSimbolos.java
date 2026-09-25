@@ -1,5 +1,6 @@
-package mycompany.contacto_3xtrat3rr3str3d.semantico;
+package mycompany.contacto_3xtrat3rr3str3d.simbolos;
 
+import mycompany.contacto_3xtrat3rr3str3d.simbolos.Simbolo;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Stack;
@@ -41,19 +42,19 @@ public class TablaSimbolos
         {
             return false;
         }
-        if (simbolo.getCategoria().equals("Metodo") || simbolo.getCategoria().equals("Clase") || simbolo.getCategoria().equals("Constructor"))
+        if (simbolo instanceof SimboloFuncion || simbolo instanceof SimboloClase)
         {
             simbolo.setOffset(-1);
             simbolo.setEnHeap(true);
         }
         else
         {
-            if (pilaAmbitos.size() == 1)
+            if (pilaAmbitos.size() == 1) // Global
             {
                 simbolo.setOffset(offsetGlobal++);
                 simbolo.setEnHeap(true);
             }
-            else
+            else // Local
             {
                 simbolo.setOffset(offsetLocal++);
                 simbolo.setEnHeap(false);
