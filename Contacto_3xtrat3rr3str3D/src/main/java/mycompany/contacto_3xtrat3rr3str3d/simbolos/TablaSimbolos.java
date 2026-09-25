@@ -63,6 +63,12 @@ public class TablaSimbolos
         ambitoActual.put(simbolo.getNombre(), simbolo);
         return true;
     }
+    
+    public Map<String, Simbolo> obtenerAmbitoActual()
+    {
+        return pilaAmbitos.peek();
+    }
+    
     public Simbolo buscar(String nombre)
     {
         for (int i = pilaAmbitos.size() - 1; i >= 0; i--)
