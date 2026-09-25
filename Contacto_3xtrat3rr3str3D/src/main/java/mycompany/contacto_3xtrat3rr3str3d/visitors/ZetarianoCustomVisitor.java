@@ -23,6 +23,12 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
         this.consola = consola;
     }
     @Override
+    public Object visitPrograma(ZetarianoParser.ProgramaContext ctx)
+    {
+        generador.limpiar(); 
+        return super.visitPrograma(ctx);
+    }
+    @Override
     public Object visitClase(ZetarianoParser.ClaseContext ctx)
     {
         String id = ctx.ID().getText();
@@ -97,7 +103,17 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
                 tabla.insertar(simParam);
             }
         }
-        Object resultado = visit(ctx.bloqueMetodo());
+        Object resultado = null;
+        if (id.equals("principal"))
+        {
+            resultado = visit(ctx.bloqueMetodo());
+        }
+        else
+        {
+            generador.iniciarMetodo(id);
+            resultado = visit(ctx.bloqueMetodo());
+            generador.cerrarMetodo();
+        }
         tabla.salirAmbito();
         return resultado;
     }
@@ -190,7 +206,9 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
                 }
                 else
                 {
-                    generador.agregarSetStack(String.valueOf(nuevoSimbolo.getOffset()), resExpr.getValorC3D());
+                    String tempIndice = generador.generarTemporal();
+                    generador.agregarAsignacion(tempIndice, "punteroStack", "+", String.valueOf(nuevoSimbolo.getOffset()));
+                    generador.agregarSetStack(tempIndice, resExpr.getValorC3D());
                 }
             }
         }
@@ -300,7 +318,9 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
             }
             else
             {
-                generador.agregarGetStack(temporal, String.valueOf(sim.getOffset()));
+                String tempIndice = generador.generarTemporal();
+                generador.agregarAsignacion(tempIndice, "punteroStack", "+", String.valueOf(sim.getOffset()));
+                generador.agregarGetStack(temporal, tempIndice);
             }
             return new ResultadoC3D(sim.getTipo(), temporal);
         }
@@ -571,13 +591,16 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
             else
             {
                 if (sim instanceof SimboloVariable) ((SimboloVariable) sim).setInicializado(true);
+                String temporal = generador.generarTemporal();
                 if (sim.isEnHeap())
                 {
                     generador.agregarSetHeap(String.valueOf(sim.getOffset()), resExpr.getValorC3D());
                 }
                 else
                 {
-                    generador.agregarSetStack(String.valueOf(sim.getOffset()), resExpr.getValorC3D());
+                    String tempIndice = generador.generarTemporal();
+                    generador.agregarAsignacion(tempIndice, "punteroStack", "+", String.valueOf(sim.getOffset()));
+                    generador.agregarGetStack(temporal, tempIndice);
                 }
             }
         }
@@ -723,7 +746,9 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
                 }
                 else 
                 {
-                    generador.agregarSetStack(String.valueOf(nuevoSimbolo.getOffset()), resExpr.getValorC3D());
+                    String tempIndice = generador.generarTemporal();
+                    generador.agregarAsignacion(tempIndice, "punteroStack", "+", String.valueOf(nuevoSimbolo.getOffset()));
+                    generador.agregarSetStack(tempIndice, resExpr.getValorC3D());
                 }
             }
         }
@@ -773,7 +798,7 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
             hayErroresSemanticos = true;
             return null;
         }
-        if (!sim.getTipo().equals(TipoDato.ENTERO.name()) && !sim.getTipo().equals(TipoDato.DECIMAL.name()))
+        if (sim.getTipo() != TipoDato.ENTERO && sim.getTipo() != TipoDato.DECIMAL)
         {
             consola.append("Error Semántico en línea " + linea + ": Solo se pueden incrementar números.\n");
             hayErroresSemanticos = true;
@@ -790,9 +815,11 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
         }
         else
         {
-            generador.agregarGetStack(temporalAnterior, String.valueOf(sim.getOffset()));
+            String tempIndice = generador.generarTemporal();
+            generador.agregarAsignacion(tempIndice, "punteroStack", "+", String.valueOf(sim.getOffset()));
+            generador.agregarGetStack(temporalAnterior, tempIndice);
             generador.agregarAsignacion(temporalNuevo, temporalAnterior, operador, "1");
-            generador.agregarSetStack(String.valueOf(sim.getOffset()), temporalNuevo);
+            generador.agregarSetStack(tempIndice, temporalNuevo);
         }
         return null;
     }
@@ -843,5 +870,58 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
         }
         SimboloClase clase = (SimboloClase) simBuscado;
         return GestorObjetos.instanciarObjetoEnHeap(clase, generador);
+    }
+    
+    @Override
+    public Object visitInstruccion(ZetarianoParser.InstruccionContext ctx)
+    {
+        if (ctx.RETURN() != null)
+        {
+            if (ctx.expresion() != null)
+            {
+                ResultadoC3D resExpr = (ResultadoC3D) visit(ctx.expresion());
+                if (resExpr != null && resExpr.getTipo() != TipoDato.ERROR)
+                {
+                    generador.agregarSetStack("punteroStack", resExpr.getValorC3D());
+                }
+            }
+            generador.agregarCodigoBruto("    return;");
+            return null;
+        }
+        return super.visitInstruccion(ctx);
+    }
+    
+    @Override
+    public Object visitLlamadaFuncionOMetodo(ZetarianoParser.LlamadaFuncionOMetodoContext ctx)
+    {
+        String idFuncion = ctx.acceso().ID(0).getText();
+        Simbolo sim = tabla.buscar(idFuncion);
+        if (sim == null || !(sim instanceof SimboloFuncion))
+        {
+            consola.append("Error Semántico en línea " + ctx.getStart().getLine() + ": La función '" + idFuncion + "' no existe.\n");
+            hayErroresSemanticos = true;
+            return new ResultadoC3D(TipoDato.ERROR, "");
+        }
+        SimboloFuncion funcion = (SimboloFuncion) sim;
+        int tamañoEntornoActual = tabla.obtenerAmbitoActual().size() + 1;
+        if (ctx.argumentos() != null)
+        {
+            for (int i = 0; i < ctx.argumentos().expresion().size(); i++)
+            {
+                ResultadoC3D resArg = (ResultadoC3D) visit(ctx.argumentos().expresion(i));
+                String tempPos = generador.generarTemporal();
+                int offsetDestino = i + 1;
+                generador.agregarAsignacion(tempPos, "punteroStack", "+", String.valueOf(tamañoEntornoActual + offsetDestino));
+                generador.agregarSetStack(tempPos, resArg.getValorC3D());
+            }
+        }
+        generador.agregarComentario("Inicio llamada a funcion: " + idFuncion);
+        generador.agregarAsignacion("punteroStack", "punteroStack", "+", String.valueOf(tamañoEntornoActual));
+        generador.agregarLlamadaNativa("metodo_" + idFuncion, "");
+        String tempReturn = generador.generarTemporal();
+        generador.agregarGetStack(tempReturn, "punteroStack");
+        generador.agregarAsignacion("punteroStack", "punteroStack", "-", String.valueOf(tamañoEntornoActual));
+        generador.agregarComentario("Fin de llamada a: " + idFuncion);
+        return new ResultadoC3D(funcion.getTipo(), tempReturn);
     }
 }

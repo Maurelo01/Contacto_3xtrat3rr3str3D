@@ -1,5 +1,7 @@
 package mycompany.contacto_3xtrat3rr3str3d.visitors;
 
+import java.util.List;
+import java.util.Map;
 import mycompany.contacto_3xtrat3rr3str3d.simbolos.*;
 import mycompany.contacto_3xtrat3rr3str3d.c3d.GeneradorFuncionesNativas;
 import mycompany.contacto_3xtrat3rr3str3d.c3d.GeneradorC3D;
@@ -7,6 +9,7 @@ import mycompany.contacto_3xtrat3rr3str3d.YBaseVisitor;
 import mycompany.contacto_3xtrat3rr3str3d.YParser;
 import javax.swing.JTextArea;
 import mycompany.contacto_3xtrat3rr3str3d.utils.*;
+import org.antlr.v4.runtime.tree.TerminalNode;
 
 public class YCustomVisitor extends YBaseVisitor<Object>
 {
@@ -19,6 +22,12 @@ public class YCustomVisitor extends YBaseVisitor<Object>
         this.tabla = tabla;
         this.consola = consola;
     }
+    @Override
+    public Object visitPrograma(YParser.ProgramaContext ctx)
+    {
+        generador.limpiar(); 
+        return super.visitPrograma(ctx);
+    }
 
     // Funciones y bloques
     
@@ -30,17 +39,123 @@ public class YCustomVisitor extends YBaseVisitor<Object>
         int columna = ctx.ID().getSymbol().getCharPositionInLine();
         String tipoStr = (ctx.FLECHA() != null) ? ctx.tipo().getText() : "VOID";
         TipoDato tipoNormalizado = tipoStr.equals("VOID") ? TipoDato.VOID : ControlTipos.normalizarTipo(tipoStr);
-        SimboloFuncion simFuncion = new SimboloFuncion(id, tipoNormalizado, linea, columna);
-        if (!tabla.insertar(simFuncion))
+        SimboloFuncion simMetodo = new SimboloFuncion(id, tipoNormalizado, linea, columna);
+        if (ctx.parametros() != null)
+        {
+            for (YParser.ParametroContext pCtx : ctx.parametros().parametro())
+            {
+                String paramId = "";
+                String paramTipoStr = "";
+                if (pCtx instanceof YParser.ParamValorContext)
+                {
+                    paramId = ((YParser.ParamValorContext) pCtx).ID().getText();
+                    paramTipoStr = ((YParser.ParamValorContext) pCtx).tipo().getText();
+                }
+                else if (pCtx instanceof YParser.ParamArregloRefContext)
+                {
+                    paramId = ((YParser.ParamArregloRefContext) pCtx).ID().getText();
+                    paramTipoStr = ((YParser.ParamArregloRefContext) pCtx).tipo().getText();
+                }
+                else if (pCtx instanceof YParser.ParamStructRefContext)
+                {
+                    paramId = ((YParser.ParamStructRefContext) pCtx).ID(1).getText();
+                    paramTipoStr = ((YParser.ParamStructRefContext) pCtx).ID(0).getText();
+                }
+                simMetodo.agregarParametro(new SimboloVariable(paramId, ControlTipos.normalizarTipo(paramTipoStr), linea, columna));
+            }
+        }
+        if (!tabla.insertar(simMetodo))
         {
             consola.append("Error Semántico en línea " + linea + ": La función '" + id + "' ya existe.\n");
             hayErroresSemanticos = true;
         }
         tabla.resetearOffsetLocal();
         tabla.entrarAmbito();
-        Object resultado = visit(ctx.bloque());
+        if (ctx.parametros() != null)
+        {
+            for (YParser.ParametroContext pCtx : ctx.parametros().parametro())
+            {
+                String paramId = "";
+                String paramTipoStr = "";
+                if (pCtx instanceof YParser.ParamValorContext)
+                {
+                    paramId = ((YParser.ParamValorContext) pCtx).ID().getText();
+                    paramTipoStr = ((YParser.ParamValorContext) pCtx).tipo().getText();
+                }
+                else if (pCtx instanceof YParser.ParamArregloRefContext)
+                {
+                    paramId = ((YParser.ParamArregloRefContext) pCtx).ID().getText();
+                    paramTipoStr = ((YParser.ParamArregloRefContext) pCtx).tipo().getText();
+                }
+                else if (pCtx instanceof YParser.ParamStructRefContext)
+                {
+                    paramId = ((YParser.ParamStructRefContext) pCtx).ID(1).getText();
+                    paramTipoStr = ((YParser.ParamStructRefContext) pCtx).ID(0).getText();
+                }
+                SimboloVariable simParam = new SimboloVariable(paramId, ControlTipos.normalizarTipo(paramTipoStr), linea, columna);
+                simParam.setInicializado(true);
+                if (ControlTipos.normalizarTipo(paramTipoStr) == TipoDato.OBJETO) simParam.setReferenciaClase(paramTipoStr);
+                tabla.insertar(simParam);
+            }
+        }
+        Object resultado = null;
+        if (id.equals("principal") || id.equals("main"))
+        {
+            resultado = visit(ctx.bloque());
+        }
+        else
+        {
+            generador.iniciarMetodo(id);
+            resultado = visit(ctx.bloque());
+            generador.cerrarMetodo();
+        }
         tabla.salirAmbito();
         return resultado;
+    }
+    
+    @Override
+    public Object visitDefinicionEstructura(YParser.DefinicionEstructuraContext ctx)
+    {
+        String id = ctx.ID().getText();
+        int linea = ctx.ID().getSymbol().getLine();
+        int columna = ctx.ID().getSymbol().getCharPositionInLine();
+        SimboloClase simEstructura = new SimboloClase(id, linea, columna);
+        int contadorAtributos = 0;
+        for (YParser.AtributoEstructuraContext atributo : ctx.atributoEstructura())
+        {
+            contadorAtributos++;
+        }
+        simEstructura.setTamañoHeapObjeto(contadorAtributos);
+        tabla.insertar(simEstructura);
+        tabla.resetearOffsetLocal();
+        tabla.entrarAmbito();
+        for (YParser.AtributoEstructuraContext atributo : ctx.atributoEstructura())
+        {
+            String attrId = "";
+            String attrTipo = "";
+            if (atributo instanceof YParser.AtributoNormalContext)
+            {
+                attrId = ((YParser.AtributoNormalContext) atributo).ID().getText();
+                attrTipo = ((YParser.AtributoNormalContext) atributo).tipo().getText();
+            }
+            else if (atributo instanceof YParser.AtributoEstructuraAnidadaContext)
+            {
+                attrId = ((YParser.AtributoEstructuraAnidadaContext) atributo).ID(1).getText();
+                attrTipo = ((YParser.AtributoEstructuraAnidadaContext) atributo).ID(0).getText();
+            }
+            TipoDato tipoNorm = ControlTipos.normalizarTipo(attrTipo);
+            SimboloVariable simAttr = new SimboloVariable(attrId, tipoNorm, linea, columna);
+            if (tipoNorm == TipoDato.OBJETO) simAttr.setReferenciaClase(attrTipo);
+            tabla.insertar(simAttr);
+        }
+        
+        Map<String, Simbolo> atributosLocales = tabla.obtenerAmbitoActual();
+        for (Simbolo sim : atributosLocales.values())
+        {
+            simEstructura.getEntornoInterno().obtenerAmbitoActual().put(sim.getNombre(), sim);
+        }
+        tabla.salirAmbito();
+        return null;
     }
 
     // Declaracion de variables y asignacion
@@ -63,6 +178,7 @@ public class YCustomVisitor extends YBaseVisitor<Object>
         {
             nuevoSimbolo.setInicializado(true);
             tabla.insertar(nuevoSimbolo);
+            
         }
         ResultadoC3D resExpr = (ResultadoC3D) visit(ctx.expresion());
         if (resExpr != null && resExpr.getTipo() != TipoDato.ERROR)
@@ -108,6 +224,98 @@ public class YCustomVisitor extends YBaseVisitor<Object>
         }
         return null;
     }
+    
+    @Override
+    public Object visitDeclEstructura(YParser.DeclEstructuraContext ctx)
+    {
+        String tipoStr = ctx.ID(0).getText();
+        String id = ctx.ID(1).getText();
+        int linea = ctx.ID(1).getSymbol().getLine();
+        int columna = ctx.ID(1).getSymbol().getCharPositionInLine();
+        SimboloVariable nuevoSimbolo = new SimboloVariable(id, TipoDato.OBJETO, linea, columna);
+        nuevoSimbolo.setReferenciaClase(tipoStr);
+        if (tabla.buscar(id) != null)
+        {
+            consola.append("Error Semántico en línea " + linea + ": La variable '" + id + "' ya ha sido declarada.\n");
+            hayErroresSemanticos = true;
+            return null;
+        }
+        nuevoSimbolo.setInicializado(true);
+        tabla.insertar(nuevoSimbolo);
+        SimboloClase plantilla = (SimboloClase) tabla.buscar(tipoStr);
+        if (plantilla != null)
+        {
+            ResultadoC3D resInstancia = GestorObjetos.instanciarObjetoEnHeap(plantilla, generador);
+            if (nuevoSimbolo.isEnHeap())
+            {
+                generador.agregarSetHeap(String.valueOf(nuevoSimbolo.getOffset()), resInstancia.getValorC3D());
+            }
+            else
+            {
+                String tempIndice = generador.generarTemporal();
+                generador.agregarAsignacion(tempIndice, "punteroStack", "+", String.valueOf(nuevoSimbolo.getOffset()));
+                generador.agregarSetStack(tempIndice, resInstancia.getValorC3D());
+            }
+        }
+        else
+        {
+            consola.append("Error Semántico en línea " + linea + ": La estructura '" + tipoStr + "' no existe.\n");
+            hayErroresSemanticos = true;
+        }
+        
+        return null;
+    }
+
+    @Override
+    public Object visitDeclEstructuraAsig(YParser.DeclEstructuraAsigContext ctx)
+    {
+        String tipoStr = ctx.ID(0).getText();
+        String id = ctx.ID(1).getText();
+        int linea = ctx.ID(1).getSymbol().getLine();
+        int columna = ctx.ID(1).getSymbol().getCharPositionInLine();
+        SimboloVariable nuevoSimbolo = new SimboloVariable(id, TipoDato.OBJETO, linea, columna);
+        nuevoSimbolo.setReferenciaClase(tipoStr);
+        if (tabla.buscar(id) != null)
+        {
+            consola.append("Error Semántico en línea " + linea + ": La variable '" + id + "' ya ha sido declarada.\n");
+            hayErroresSemanticos = true;
+            return null;
+        }
+        nuevoSimbolo.setInicializado(true);
+        tabla.insertar(nuevoSimbolo);
+        SimboloClase plantilla = (SimboloClase) tabla.buscar(tipoStr);
+        if (plantilla != null)
+        {
+            ResultadoC3D resInstancia = GestorObjetos.instanciarObjetoEnHeap(plantilla, generador);
+            if (nuevoSimbolo.isEnHeap())
+            {
+                generador.agregarSetHeap(String.valueOf(nuevoSimbolo.getOffset()), resInstancia.getValorC3D());
+            }
+            else
+            {
+                String tempIndice = generador.generarTemporal();
+                generador.agregarAsignacion(tempIndice, "punteroStack", "+", String.valueOf(nuevoSimbolo.getOffset()));
+                generador.agregarSetStack(tempIndice, resInstancia.getValorC3D());
+            }
+            if (ctx.argumentos() != null)
+            {
+                java.util.List<YParser.ExpresionContext> args = ctx.argumentos().expresion();
+                for (int i = 0; i < args.size(); i++)
+                {
+                    ResultadoC3D resArg = (ResultadoC3D) visit(args.get(i));
+                    String tempPosAttr = generador.generarTemporal();
+                    generador.agregarAsignacion(tempPosAttr, resInstancia.getValorC3D(), "+", String.valueOf(i));
+                    generador.agregarSetHeap(tempPosAttr, resArg.getValorC3D());
+                }
+            }
+        }
+        else
+        {
+            consola.append("Error Semántico en línea " + linea + ": La estructura '" + tipoStr + "' no existe.\n");
+            hayErroresSemanticos = true;
+        }
+        return null;
+    }
 
     // Instrucciones
     
@@ -142,6 +350,65 @@ public class YCustomVisitor extends YBaseVisitor<Object>
         generador.agregarPrint("c", "10"); 
         return null;
     }
+    @Override
+    public Object visitInstruccionRetornar(YParser.InstruccionRetornarContext ctx)
+    {
+        if (ctx.expresion() != null)
+        {
+            ResultadoC3D resExpr = (ResultadoC3D) visit(ctx.expresion());
+            if (resExpr != null && resExpr.getTipo() != TipoDato.ERROR)
+            {
+                generador.agregarSetStack("punteroStack", resExpr.getValorC3D());
+            }
+        }
+        generador.agregarCodigoBruto("    return;");
+        return null;
+    }
+
+    @Override
+    public Object visitLlamadaFuncionExpr(YParser.LlamadaFuncionExprContext ctx)
+    {
+        return procesarLlamadaFuncion(ctx.llamadaFuncion());
+    }
+
+    @Override
+    public Object visitInstruccionLlamadaFuncion(YParser.InstruccionLlamadaFuncionContext ctx)
+    {
+        return procesarLlamadaFuncion(ctx.llamadaFuncion());
+    }
+
+    private Object procesarLlamadaFuncion(YParser.LlamadaFuncionContext ctx)
+    {
+        String idFuncion = ctx.ID().getText();
+        Simbolo sim = tabla.buscar(idFuncion);
+        if (sim == null || !(sim instanceof SimboloFuncion))
+        {
+            consola.append("Error Semántico en línea " + ctx.getStart().getLine() + ": La función '" + idFuncion + "' no existe.\n");
+            hayErroresSemanticos = true;
+            return new ResultadoC3D(TipoDato.ERROR, "");
+        }
+        SimboloFuncion funcion = (SimboloFuncion) sim;
+        int tamanoEntornoActual = tabla.obtenerAmbitoActual().size() + 1;
+        if (ctx.argumentos() != null)
+        {
+            for (int i = 0; i < ctx.argumentos().expresion().size(); i++)
+            {
+                ResultadoC3D resArg = (ResultadoC3D) visit(ctx.argumentos().expresion(i));
+                String tempPos = generador.generarTemporal();
+                int offsetDestino = i + 1;
+                generador.agregarAsignacion(tempPos, "punteroStack", "+", String.valueOf(tamanoEntornoActual + offsetDestino));
+                generador.agregarSetStack(tempPos, resArg.getValorC3D());
+            }
+        }
+        generador.agregarComentario("Inicio llamada a funcion: " + idFuncion);
+        generador.agregarAsignacion("punteroStack", "punteroStack", "+", String.valueOf(tamanoEntornoActual));
+        generador.agregarLlamadaNativa("metodo_" + idFuncion, "");
+        String tempReturn = generador.generarTemporal();
+        generador.agregarGetStack(tempReturn, "punteroStack");
+        generador.agregarAsignacion("punteroStack", "punteroStack", "-", String.valueOf(tamanoEntornoActual));
+        generador.agregarComentario("Fin de llamada a: " + idFuncion);
+        return new ResultadoC3D(funcion.getTipo(), tempReturn);
+    }
 
     // Literales
     
@@ -160,7 +427,8 @@ public class YCustomVisitor extends YBaseVisitor<Object>
     @Override
     public Object visitTextLiteral(YParser.TextLiteralContext ctx)
     {
-        return new ResultadoC3D(TipoDato.CADENA, ctx.getText());
+        String texto = ctx.getText();
+        return GestorCadenas.guardarCadenaEnHeap(texto, generador);
     }
     
     @Override
@@ -201,22 +469,43 @@ public class YCustomVisitor extends YBaseVisitor<Object>
             hayErroresSemanticos = true;
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
-        if (sim instanceof SimboloVariable && !((SimboloVariable)sim).isInicializado() && !sim.isEnHeap())
+        List<TerminalNode> ids = ctx.acceso().ID();
+        if (ids.size() == 1)
         {
-            consola.append("Error Semántico en línea " + linea + ": La variable local '" + idVariable + "' podría no haber sido inicializada.\n");
-            hayErroresSemanticos = true;
-            return new ResultadoC3D(TipoDato.ERROR, "");
-        }
-        String temporal = generador.generarTemporal();
-        if (sim.isEnHeap())
-        {
-            generador.agregarGetHeap(temporal, String.valueOf(sim.getOffset()));
+            if (sim instanceof SimboloVariable && !((SimboloVariable)sim).isInicializado() && !sim.isEnHeap())
+            {
+                consola.append("Error Semántico en línea " + linea + ": La variable local '" + idVariable + "' podría no haber sido inicializada.\n");
+                hayErroresSemanticos = true;
+                return new ResultadoC3D(TipoDato.ERROR, "");
+            }
+            String temporal = generador.generarTemporal();
+            if (sim.isEnHeap())
+            {
+                generador.agregarGetHeap(temporal, String.valueOf(sim.getOffset()));
+            }
+            else
+            {
+                String tempIndice = generador.generarTemporal();
+                generador.agregarAsignacion(tempIndice, "punteroStack", "+", String.valueOf(sim.getOffset()));
+                generador.agregarGetStack(temporal, tempIndice);
+            }
+            return new ResultadoC3D(sim.getTipo(), temporal);
         }
         else
         {
-            generador.agregarGetStack(temporal, String.valueOf(sim.getOffset()));
+            ResultadoC3D resDireccion = GestorPunteros.obtenerPosicionAtributo(sim, ids, tabla, generador);
+            if (resDireccion.getTipo() == TipoDato.ERROR)
+            {
+                consola.append("Error Semántico en línea " + linea + ": Acceso a atributo inválido en '" + idVariable + "'.\n");
+                hayErroresSemanticos = true;
+                return new ResultadoC3D(TipoDato.ERROR, "");
+            }
+
+            String temporalValor = generador.generarTemporal();
+            generador.agregarGetHeap(temporalValor, resDireccion.getValorC3D());
+
+            return new ResultadoC3D(resDireccion.getTipo(), temporalValor);
         }
-        return new ResultadoC3D(sim.getTipo(), temporal);
     }
     
     // Expresiones Matematicas y Logicas
@@ -434,7 +723,9 @@ public class YCustomVisitor extends YBaseVisitor<Object>
             return null;
         }
         ResultadoC3D resExpr = (ResultadoC3D) visit(ctx.expresion());
-        if (resExpr != null && resExpr.getTipo() != TipoDato.ERROR)
+        if (resExpr == null || resExpr.getTipo() == TipoDato.ERROR) return null;
+        List<TerminalNode> ids = ctx.acceso().ID();
+        if (ids.size() == 1)
         {
             if (!ControlTipos.esAsignacionValida(sim.getTipo(), resExpr.getTipo()))
             {
@@ -450,8 +741,30 @@ public class YCustomVisitor extends YBaseVisitor<Object>
                 }
                 else
                 {
-                    generador.agregarSetStack(String.valueOf(sim.getOffset()), resExpr.getValorC3D());
+                    String tempIndice = generador.generarTemporal();
+                    generador.agregarAsignacion(tempIndice, "punteroStack", "+", String.valueOf(sim.getOffset()));
+                    generador.agregarSetStack(tempIndice, resExpr.getValorC3D());
                 }
+            }
+        }
+        else
+        {
+            ResultadoC3D resDireccion = GestorPunteros.obtenerPosicionAtributo(sim, ids, tabla, generador);
+            if (resDireccion.getTipo() == TipoDato.ERROR)
+            {
+                consola.append("Error Semántico en línea " + linea + ": Acceso inválido a atributo en '" + idVariable + "'.\n");
+                hayErroresSemanticos = true;
+                return null;
+            }
+
+            if (!ControlTipos.esAsignacionValida(resDireccion.getTipo(), resExpr.getTipo()))
+            {
+                consola.append("Error Semántico en línea " + linea + ": Tipos incompatibles de atributo.\n");
+                hayErroresSemanticos = true;
+            }
+            else
+            {
+                generador.agregarSetHeap(resDireccion.getValorC3D(), resExpr.getValorC3D());
             }
         }
         return null;
@@ -468,7 +781,7 @@ public class YCustomVisitor extends YBaseVisitor<Object>
             consola.append("Error Semántico en línea " + linea + ": La variable '" + idVariable + "' no existe.\n");
             hayErroresSemanticos = true; return null;
         }
-        if (!sim.getTipo().equals(TipoDato.ENTERO.name()) && !sim.getTipo().equals(TipoDato.DECIMAL.name()))
+        if (sim.getTipo() != TipoDato.ENTERO && sim.getTipo() != TipoDato.DECIMAL)
         {
             consola.append("Error Semántico en línea " + linea + ": Solo se pueden incrementar números.\n");
             hayErroresSemanticos = true; return null;
@@ -484,9 +797,11 @@ public class YCustomVisitor extends YBaseVisitor<Object>
         }
         else
         {
-            generador.agregarGetStack(temporalAnterior, String.valueOf(sim.getOffset()));
+            String tempIndice = generador.generarTemporal();
+            generador.agregarAsignacion(tempIndice, "punteroStack", "+", String.valueOf(sim.getOffset()));
+            generador.agregarGetStack(temporalAnterior, tempIndice);
             generador.agregarAsignacion(temporalNuevo, temporalAnterior, operador, "1");
-            generador.agregarSetStack(String.valueOf(sim.getOffset()), temporalNuevo);
+            generador.agregarSetStack(tempIndice, temporalNuevo);
         }
         return null;
     }

@@ -116,11 +116,29 @@ public class GeneradorC3D
     
     public void agregarLlamadaNativa(String nombreNativa, String argumento)
     {
-        escritorInstrucciones.getCodigo().add(nombreNativa + "(" + argumento + ");");
+        escritorInstrucciones.agregarCodigoBruto(nombreNativa + "(" + argumento + ");");
     }
 
     public String obtenerCodigoCompilable()
     {
-        return ConectorC3D.construirCodigoCompilable(escritorInstrucciones.getCodigo(), gestorMemoria.getContadorTemporales(), funcionesNativas);
+        return ConectorC3D.construirCodigoCompilable(escritorInstrucciones.getCodigoMain(), escritorInstrucciones.getCodigoFunciones(), gestorMemoria.getContadorTemporales(), funcionesNativas);
+    }
+    
+    public void iniciarMetodo(String nombreMetodo)
+    {
+        escritorInstrucciones.setEscribiendoEnFuncion(true);
+        escritorInstrucciones.agregarCodigoBruto("void metodo_" + nombreMetodo + "() {");
+    }
+
+    public void cerrarMetodo()
+    {
+        escritorInstrucciones.agregarCodigoBruto("    return;");
+        escritorInstrucciones.agregarCodigoBruto("}\n");
+        escritorInstrucciones.setEscribiendoEnFuncion(false);
+    }
+
+    public void agregarCodigoBruto(String codigo)
+    {
+        escritorInstrucciones.agregarCodigoBruto(codigo);
     }
 }

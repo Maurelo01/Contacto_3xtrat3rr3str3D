@@ -4,7 +4,7 @@ import java.util.List;
 
 public class ConectorC3D
 {
-    public static String construirCodigoCompilable(List<String> codigoMain, int totalTemporales, List<String> funcionesNativas)
+    public static String construirCodigoCompilable(List<String> codigoMain, List<String> codigoFunciones, int totalTemporales, List<String> funcionesNativas)
     {
         StringBuilder c3d = new StringBuilder();
         c3d.append("#include <stdio.h>\n\n");
@@ -20,14 +20,8 @@ public class ConectorC3D
             for (int i = 0; i < totalTemporales; i++)
             {
                 c3d.append("temp").append(i);
-                if (i < totalTemporales - 1)
-                {
-                    c3d.append(", ");
-                }
-                if ((i + 1) % 100 == 0)
-                {
-                    c3d.append("\n");
-                }
+                if (i < totalTemporales - 1) c3d.append(", ");
+                if ((i + 1) % 100 == 0) c3d.append("\n");
             }
             c3d.append(";\n\n");
         }
@@ -37,6 +31,14 @@ public class ConectorC3D
             for (String nativa : funcionesNativas)
             {
                 c3d.append(nativa).append("\n");
+            }
+        }
+        
+        if (codigoFunciones != null)
+        {
+            for (String instFunc : codigoFunciones)
+            {
+                c3d.append("    ").append(instFunc).append("\n");
             }
         }
 

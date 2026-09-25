@@ -32,7 +32,7 @@ public class TablaSimbolos
     }
     public void resetearOffsetLocal() 
     {
-        this.offsetLocal = 0;
+        this.offsetLocal = 1;
     }
 
     public boolean insertar(Simbolo simbolo)
