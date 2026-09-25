@@ -1,5 +1,7 @@
 package mycompany.contacto_3xtrat3rr3str3d.visitors;
 
+import java.util.List;
+import java.util.Map;
 import mycompany.contacto_3xtrat3rr3str3d.simbolos.*;
 import mycompany.contacto_3xtrat3rr3str3d.c3d.GeneradorFuncionesNativas;
 import mycompany.contacto_3xtrat3rr3str3d.c3d.GeneradorC3D;
@@ -7,6 +9,7 @@ import mycompany.contacto_3xtrat3rr3str3d.ZetarianoBaseVisitor;
 import mycompany.contacto_3xtrat3rr3str3d.ZetarianoParser;
 import javax.swing.JTextArea;
 import mycompany.contacto_3xtrat3rr3str3d.utils.*;
+import org.antlr.v4.runtime.tree.TerminalNode;
 
 public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
 {
@@ -36,10 +39,29 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
         }
         simClase.setTamañoHeapObjeto(contadorAtributos);
         tabla.insertar(simClase);
+        tabla.resetearOffsetLocal();
         tabla.entrarAmbito();
-        Object resultado = super.visitClase(ctx);
+        for (ZetarianoParser.MiembroContext miembro : ctx.miembro())
+        {
+            if (miembro instanceof ZetarianoParser.MiembroDeclaracionContext)
+            {
+                visit(miembro);
+            }
+        }
+        Map<String, Simbolo> atributosLocales = tabla.obtenerAmbitoActual();
+        for (Simbolo sim : atributosLocales.values())
+        {
+            simClase.getEntornoInterno().obtenerAmbitoActual().put(sim.getNombre(), sim);
+        }
+        for (ZetarianoParser.MiembroContext miembro : ctx.miembro())
+        {
+            if (!(miembro instanceof ZetarianoParser.MiembroDeclaracionContext))
+            {
+                visit(miembro);
+            }
+        }
         tabla.salirAmbito();
-        return resultado;
+        return null;
     }
     @Override
     public Object visitMetodo(ZetarianoParser.MetodoContext ctx)
@@ -108,6 +130,7 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
         {
             nuevoSimbolo = new SimboloVariable(id, tipoNormalizado, linea, columna);
         }
+        if (tipoNormalizado == TipoDato.OBJETO && nuevoSimbolo instanceof SimboloVariable) ((SimboloVariable) nuevoSimbolo).setReferenciaClase(tipoStr);
         if (tabla.buscar(id) != null)
         {
             consola.append("Error Semántico en línea " + linea + ", columna " + columna + ": La variable '" + id + "' ya ha sido declarada.\n");
@@ -140,6 +163,7 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
         {
             nuevoSimbolo = new SimboloVariable(id, tipoNormalizado, linea, columna);
         }
+        if (tipoNormalizado == TipoDato.OBJETO && nuevoSimbolo instanceof SimboloVariable) ((SimboloVariable) nuevoSimbolo).setReferenciaClase(tipoStr);
         if (tabla.buscar(id) != null)
         {
             consola.append("Error Semántico en línea " + linea + ", columna " + columna + ": La variable '" + id + "' ya ha sido declarada.\n");
@@ -260,22 +284,39 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
             hayErroresSemanticos = true;
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
-        if (sim instanceof SimboloVariable && !((SimboloVariable)sim).isInicializado() && !sim.isEnHeap())
+        List<TerminalNode> ids = ctx.acceso().ID();
+        if (ids.size() == 1)
         {
-            consola.append("Error Semántico en línea " + linea + ": La variable local '" + idVariable + "' podría no haber sido inicializada.\n");
-            hayErroresSemanticos = true;
-            return new ResultadoC3D(TipoDato.ERROR, "");
-        }
-        String temporal = generador.generarTemporal();
-        if (sim.isEnHeap())
-        {
-            generador.agregarGetHeap(temporal, String.valueOf(sim.getOffset()));
+            if (sim instanceof SimboloVariable && !((SimboloVariable)sim).isInicializado() && !sim.isEnHeap())
+            {
+                consola.append("Error Semántico en línea " + linea + ": La variable local '" + idVariable + "' podría no haber sido inicializada.\n");
+                hayErroresSemanticos = true;
+                return new ResultadoC3D(TipoDato.ERROR, "");
+            }
+            String temporal = generador.generarTemporal();
+            if (sim.isEnHeap())
+            {
+                generador.agregarGetHeap(temporal, String.valueOf(sim.getOffset()));
+            }
+            else
+            {
+                generador.agregarGetStack(temporal, String.valueOf(sim.getOffset()));
+            }
+            return new ResultadoC3D(sim.getTipo(), temporal);
         }
         else
         {
-            generador.agregarGetStack(temporal, String.valueOf(sim.getOffset()));
+            ResultadoC3D resDireccion = GestorPunteros.obtenerPosicionAtributo(sim, ids, tabla, generador);
+            if (resDireccion.getTipo() == TipoDato.ERROR)
+            {
+                consola.append("Error Semántico en línea " + linea + ": Acceso a atributo inválido en '" + idVariable + "'.\n");
+                hayErroresSemanticos = true;
+                return new ResultadoC3D(TipoDato.ERROR, "");
+            }
+            String temporalValor = generador.generarTemporal();
+            generador.agregarGetHeap(temporalValor, resDireccion.getValorC3D());
+            return new ResultadoC3D(resDireccion.getTipo(), temporalValor);
         }
-        return new ResultadoC3D(sim.getTipo(), temporal);
     }
 
     @Override
@@ -518,11 +559,13 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
             return null;
         }
         ResultadoC3D resExpr = (ResultadoC3D) visit(ctx.expresion());
-        if (resExpr != null && resExpr.getTipo() != TipoDato.ERROR)
+        if (resExpr == null || resExpr.getTipo() == TipoDato.ERROR) return null;
+        List<TerminalNode> ids = ctx.acceso().ID();
+        if (ids.size() == 1)
         {
             if (!ControlTipos.esAsignacionValida(sim.getTipo(), resExpr.getTipo()))
             {
-                consola.append("Error Semántico en línea " + linea + ": Tipos incompatibles. No se puede asignar " + resExpr.getTipo() + " a la variable '" + idVariable + "'.\n");
+                consola.append("Error Semántico en línea " + linea + ": Tipos incompatibles para '" + idVariable + "'.\n");
                 hayErroresSemanticos = true;
             }
             else
@@ -536,6 +579,25 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
                 {
                     generador.agregarSetStack(String.valueOf(sim.getOffset()), resExpr.getValorC3D());
                 }
+            }
+        }
+        else
+        {
+            ResultadoC3D resDireccion = GestorPunteros.obtenerPosicionAtributo(sim, ids, tabla, generador);
+            if (resDireccion.getTipo() == TipoDato.ERROR)
+            {
+                consola.append("Error Semántico en línea " + linea + ": Acceso inválido a atributo en '" + idVariable + "'.\n");
+                hayErroresSemanticos = true;
+                return null;
+            }
+            if (!ControlTipos.esAsignacionValida(resDireccion.getTipo(), resExpr.getTipo()))
+            {
+                consola.append("Error Semántico en línea " + linea + ": Tipos incompatibles de atributo.\n");
+                hayErroresSemanticos = true;
+            }
+            else
+            {
+                generador.agregarSetHeap(resDireccion.getValorC3D(), resExpr.getValorC3D());
             }
         }
         return null;

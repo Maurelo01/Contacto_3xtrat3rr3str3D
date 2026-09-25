@@ -3,6 +3,7 @@ package mycompany.contacto_3xtrat3rr3str3d.simbolos;
 public class SimboloVariable extends Simbolo
 {
     private boolean inicializado;
+    private String referenciaClase;
     public SimboloVariable(String nombre, TipoDato tipo, int linea, int columna)
     {
         super(nombre, tipo, linea, columna);
@@ -16,6 +17,16 @@ public class SimboloVariable extends Simbolo
     {
         this.inicializado = inicializado;
     }
+    
+    public String getReferenciaClase()
+    {
+        return referenciaClase;
+    }
+    public void setReferenciaClase(String referenciaClase)
+    {
+        this.referenciaClase = referenciaClase;
+    }
+    
     @Override
     public String getCategoria()
     {
