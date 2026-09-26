@@ -88,7 +88,7 @@ tokens { INDENT, DEDENT }
     parametros: parametro (COMA parametro)*;
     parametro: tipo ID #ParamValor
             | CORCH_IZQ CORCH_DER tipo ID #ParamArregloRef
-            | LLAVE_IZQ ID ID #ParamStructRef;
+            | LLAVE_IZQ LLAVE_DER ID ID #ParamStructRef;
 
     // Bloques
     bloque: INDENT instruccion+ DEDENT;

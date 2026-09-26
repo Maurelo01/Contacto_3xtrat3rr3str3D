@@ -26,7 +26,7 @@ public class GestorMemoriaC3D
 
     public String generarEtiqueta()
     {
-        return "et" + (contadorEtiquetas++);
+        return "etiqueta" + (contadorEtiquetas++);
     }
 
     public int moverPunteroStack(int espacios)
