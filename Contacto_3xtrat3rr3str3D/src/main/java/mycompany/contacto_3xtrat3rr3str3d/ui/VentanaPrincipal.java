@@ -6,28 +6,18 @@ package mycompany.contacto_3xtrat3rr3str3d.ui;
 import java.awt.Component;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 import javax.swing.JScrollPane;
 import javax.swing.JTextPane;
+import javax.swing.event.ChangeEvent;
+import javax.swing.text.Element;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
-import mycompany.contacto_3xtrat3rr3str3d.PigLatinLexer;
-import mycompany.contacto_3xtrat3rr3str3d.PigLatinParser;
-import mycompany.contacto_3xtrat3rr3str3d.YLexer;
-import mycompany.contacto_3xtrat3rr3str3d.YParser;
-import mycompany.contacto_3xtrat3rr3str3d.ZetarianoLexer;
-import mycompany.contacto_3xtrat3rr3str3d.ZetarianoParser;
-import mycompany.contacto_3xtrat3rr3str3d.c3d.GeneradorC3D;
-import mycompany.contacto_3xtrat3rr3str3d.visitors.PigLatinCustomVisitor;
+import mycompany.contacto_3xtrat3rr3str3d.servicios.GestorArchivos;
+import mycompany.contacto_3xtrat3rr3str3d.servicios.GestorCompilacion;
 import mycompany.contacto_3xtrat3rr3str3d.simbolos.TablaSimbolos;
-import mycompany.contacto_3xtrat3rr3str3d.visitors.YCustomVisitor;
-import mycompany.contacto_3xtrat3rr3str3d.visitors.ZetarianoCustomVisitor;
-import org.antlr.v4.runtime.CharStream;
-import org.antlr.v4.runtime.CharStreams;
-import org.antlr.v4.runtime.CommonTokenStream;
-import org.antlr.v4.runtime.tree.ParseTree;
+
 /**
  *
  * @author mauricio
@@ -42,37 +32,10 @@ public class VentanaPrincipal extends javax.swing.JFrame {
      */
     public VentanaPrincipal() {
         initComponents();
-    }
-    
-    class NodoArchivo
-    {
-        File archivo;
-        public NodoArchivo(File archivo)
-        { 
-            this.archivo = archivo; 
-        }
-        @Override
-        public String toString()
-        { 
-            return archivo.getName(); 
-        }
-    }
-    
-    private void llenarArbol(File carpeta, DefaultMutableTreeNode nodoPadre)
-    {
-        File[] archivos = carpeta.listFiles();
-        if (archivos != null)
+        panelPestañas.addChangeListener((ChangeEvent e) ->
         {
-            for (File archivo : archivos)
-            {
-                DefaultMutableTreeNode nodoHijo = new DefaultMutableTreeNode(new NodoArchivo(archivo));
-                nodoPadre.add(nodoHijo);
-                if (archivo.isDirectory())
-                {
-                    llenarArbol(archivo, nodoHijo);
-                }
-            }
-        }
+            actualizarIndicadorPosicion();
+        });
     }
     
     private void abrirArchivoEnPestaña(File archivo)
@@ -88,22 +51,38 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         }
         try
         {
-            String contenido = new String(Files.readAllBytes(archivo.toPath()));
-            ColoreadoSintaxis doc = new ColoreadoSintaxis();
+            String contenido = GestorArchivos.leerContenido(archivo);
+            String extension = nombreArchivo.substring(nombreArchivo.lastIndexOf('.') + 1);
+            ColoreadoSintaxis doc = new ColoreadoSintaxis(extension);
             JTextPane editor = new JTextPane(doc);
             editor.setFont(new java.awt.Font("Monospaced", java.awt.Font.PLAIN, 14));
             editor.setText(contenido);
             editor.putClientProperty("archivoFisico", archivo);
+            editor.addCaretListener(e -> actualizarIndicadorPosicion());
             JScrollPane scroll = new JScrollPane(editor);
-            NumeroLinea numeros = new NumeroLinea(editor);
-            scroll.setRowHeaderView(numeros);
-            panelPestañas.addTab(archivo.getName(), scroll);
+            scroll.setRowHeaderView(new NumeroLinea(editor));
+            panelPestañas.addTab(nombreArchivo, scroll);
             panelPestañas.setSelectedComponent(scroll);
         }
         catch (IOException e)
         {
             JOptionPane.showMessageDialog(this, "Error al leer el archivo: " + e.getMessage());
         }
+    }
+    
+    private void actualizarIndicadorPosicion()
+    {
+        Component tab = panelPestañas.getSelectedComponent();
+        if (tab instanceof JScrollPane scroll)
+        {
+            JTextPane editor = (JTextPane) scroll.getViewport().getView();
+            int dot = editor.getCaretPosition();
+            Element root = editor.getDocument().getDefaultRootElement();
+            int linea = root.getElementIndex(dot);
+            int columna = dot - root.getElement(linea).getStartOffset();
+            lblPosicion.setText("Línea: " + (linea + 1) + ", Columna: " + (columna + 1));
+        }
+        else lblPosicion.setText("Línea: 1, Columna: 1");
     }
 
     /**
@@ -120,13 +99,20 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         panelPestañas = new javax.swing.JTabbedPane();
         jScrollPane1 = new javax.swing.JScrollPane();
         treeArchivos = new javax.swing.JTree();
+        jTabbedPane1 = new javax.swing.JTabbedPane();
         jScrollPane2 = new javax.swing.JScrollPane();
         consolaSalida = new javax.swing.JTextArea();
+        jScrollPane3 = new javax.swing.JScrollPane();
+        consolaC3D = new javax.swing.JTextArea();
+        jScrollPane4 = new javax.swing.JScrollPane();
+        consolaAST = new javax.swing.JTextArea();
+        lblPosicion = new javax.swing.JLabel();
         jMenuBar1 = new javax.swing.JMenuBar();
         menuArchivo = new javax.swing.JMenu();
         itemNuevoArchivo = new javax.swing.JMenuItem();
         itemAbrirProyecto = new javax.swing.JMenuItem();
         itemGuardar = new javax.swing.JMenuItem();
+        itemExportarC3D = new javax.swing.JMenuItem();
         itemCerrarArchivo = new javax.swing.JMenuItem();
         menuEjecutar = new javax.swing.JMenu();
         itemAnalizar = new javax.swing.JMenuItem();
@@ -138,6 +124,7 @@ public class VentanaPrincipal extends javax.swing.JFrame {
 
         splitVertical.setRightComponent(panelPestañas);
 
+        treeArchivos.setPreferredSize(new java.awt.Dimension(80, 82));
         treeArchivos.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 treeArchivosMouseClicked(evt);
@@ -154,7 +141,25 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         consolaSalida.setRows(5);
         jScrollPane2.setViewportView(consolaSalida);
 
-        splitHorizontal.setRightComponent(jScrollPane2);
+        jTabbedPane1.addTab("Consola de Análisis", jScrollPane2);
+
+        consolaC3D.setEditable(false);
+        consolaC3D.setColumns(20);
+        consolaC3D.setRows(5);
+        jScrollPane3.setViewportView(consolaC3D);
+
+        jTabbedPane1.addTab("Código 3 Direcciones", jScrollPane3);
+
+        consolaAST.setEditable(false);
+        consolaAST.setColumns(20);
+        consolaAST.setRows(5);
+        jScrollPane4.setViewportView(consolaAST);
+
+        jTabbedPane1.addTab("Árbol AST", jScrollPane4);
+
+        splitHorizontal.setRightComponent(jTabbedPane1);
+
+        lblPosicion.setText("Línea: 1, Columna: 1");
 
         menuArchivo.setText("Archivo");
 
@@ -169,6 +174,10 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         itemGuardar.setText("Guardar");
         itemGuardar.addActionListener(this::itemGuardarActionPerformed);
         menuArchivo.add(itemGuardar);
+
+        itemExportarC3D.setText("Exportar C3D (.c)");
+        itemExportarC3D.addActionListener(this::itemExportarC3DActionPerformed);
+        menuArchivo.add(itemExportarC3D);
 
         itemCerrarArchivo.setText("Cerrar Pestaña Actual");
         itemCerrarArchivo.addActionListener(this::itemCerrarArchivoActionPerformed);
@@ -192,14 +201,20 @@ public class VentanaPrincipal extends javax.swing.JFrame {
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(splitHorizontal, javax.swing.GroupLayout.DEFAULT_SIZE, 1122, Short.MAX_VALUE)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(splitHorizontal, javax.swing.GroupLayout.DEFAULT_SIZE, 1122, Short.MAX_VALUE)
+                    .addGroup(layout.createSequentialGroup()
+                        .addComponent(lblPosicion)
+                        .addGap(0, 0, Short.MAX_VALUE)))
                 .addContainerGap())
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(splitHorizontal, javax.swing.GroupLayout.DEFAULT_SIZE, 633, Short.MAX_VALUE)
+                .addComponent(splitHorizontal, javax.swing.GroupLayout.DEFAULT_SIZE, 647, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(lblPosicion)
                 .addContainerGap())
         );
 
@@ -210,15 +225,12 @@ public class VentanaPrincipal extends javax.swing.JFrame {
     private void itemAbrirProyectoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_itemAbrirProyectoActionPerformed
         JFileChooser buscador = new JFileChooser();
         buscador.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-        int seleccion = buscador.showOpenDialog(this);
-        if (seleccion == JFileChooser.APPROVE_OPTION)
+        if (buscador.showOpenDialog(this) == JFileChooser.APPROVE_OPTION)
         {
-            File carpetaSeleccionada = buscador.getSelectedFile();
-            this.carpetaProyectoActual = carpetaSeleccionada;
-            DefaultMutableTreeNode nodoRaiz = new DefaultMutableTreeNode(new NodoArchivo(carpetaSeleccionada));
-            llenarArbol(carpetaSeleccionada, nodoRaiz);
-            DefaultTreeModel modeloArbol = new DefaultTreeModel(nodoRaiz);
-            treeArchivos.setModel(modeloArbol);
+            carpetaProyectoActual = buscador.getSelectedFile();
+            DefaultMutableTreeNode nodoRaiz = new DefaultMutableTreeNode(new GestorArchivos.NodoArchivo(carpetaProyectoActual));
+            GestorArchivos.llenarArbolDirectorios(carpetaProyectoActual, nodoRaiz);
+            treeArchivos.setModel(new DefaultTreeModel(nodoRaiz));
         }
     }//GEN-LAST:event_itemAbrirProyectoActionPerformed
 
@@ -226,29 +238,24 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         if (evt.getClickCount() == 2)
         {
             DefaultMutableTreeNode nodoSeleccionado = (DefaultMutableTreeNode) treeArchivos.getLastSelectedPathComponent();
-            if (nodoSeleccionado != null && nodoSeleccionado.getUserObject() instanceof NodoArchivo)
+            if (nodoSeleccionado != null && nodoSeleccionado.getUserObject() instanceof GestorArchivos.NodoArchivo nodoArchivo)
             {
-                File archivo = ((NodoArchivo) nodoSeleccionado.getUserObject()).archivo;
-                if (archivo.isFile())
-                {
-                    abrirArchivoEnPestaña(archivo);
-                }
+                if (nodoArchivo.archivo.isFile()) abrirArchivoEnPestaña(nodoArchivo.archivo);
             }
         }
     }//GEN-LAST:event_treeArchivosMouseClicked
 
     private void itemGuardarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_itemGuardarActionPerformed
         Component tabActiva = panelPestañas.getSelectedComponent();
-        if (tabActiva instanceof JScrollPane)
+        if (tabActiva instanceof JScrollPane scroll)
         {
             try
             {
-                JScrollPane scroll = (JScrollPane) tabActiva;
                 JTextPane editor = (JTextPane) scroll.getViewport().getView();
                 File archivo = (File) editor.getClientProperty("archivoFisico");
                 if (archivo != null)
                 {
-                    Files.write(archivo.toPath(), editor.getText().getBytes());
+                    GestorArchivos.guardarContenido(archivo, editor.getText());
                     JOptionPane.showMessageDialog(this, "Archivo guardado correctamente.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
                 }
             }
@@ -256,7 +263,8 @@ public class VentanaPrincipal extends javax.swing.JFrame {
             {
                 JOptionPane.showMessageDialog(this, "Error al guardar: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
-        } else
+        }
+        else
         {
             JOptionPane.showMessageDialog(this, "No hay ningún archivo abierto.", "Aviso", JOptionPane.WARNING_MESSAGE);
         }
@@ -268,222 +276,114 @@ public class VentanaPrincipal extends javax.swing.JFrame {
             JOptionPane.showMessageDialog(this, "Primero debes abrir un proyecto/carpeta.", "Aviso", JOptionPane.WARNING_MESSAGE);
             return;
         }
-        String nombreArchivo = JOptionPane.showInputDialog(this, "Ingrese el nombre del archivo con extensión .z, .y, .pig:", "Nuevo Archivo", JOptionPane.QUESTION_MESSAGE);
+        String nombreArchivo = JOptionPane.showInputDialog(this, "Ingrese el nombre del archivo con extensión: .pig/.y/.z:", "Nuevo Archivo", JOptionPane.QUESTION_MESSAGE);
         if (nombreArchivo != null && !nombreArchivo.trim().isEmpty())
         {
-            if (nombreArchivo.endsWith(".z") || nombreArchivo.endsWith(".y") || nombreArchivo.endsWith(".pig")) {
+            if (nombreArchivo.endsWith(".z") || nombreArchivo.endsWith(".y") || nombreArchivo.endsWith(".pig"))
+            {
                 try
                 {
                     File nuevoArchivo = new File(carpetaProyectoActual, nombreArchivo);
                     if (nuevoArchivo.createNewFile())
                     {
                         JOptionPane.showMessageDialog(this, "Archivo creado exitosamente.");
-                        DefaultMutableTreeNode nodoRaiz = new DefaultMutableTreeNode(new NodoArchivo(carpetaProyectoActual));
-                        llenarArbol(carpetaProyectoActual, nodoRaiz);
+                        DefaultMutableTreeNode nodoRaiz = new DefaultMutableTreeNode(new GestorArchivos.NodoArchivo(carpetaProyectoActual));
+                        GestorArchivos.llenarArbolDirectorios(carpetaProyectoActual, nodoRaiz);
                         treeArchivos.setModel(new DefaultTreeModel(nodoRaiz));
                         abrirArchivoEnPestaña(nuevoArchivo);
                     }
-                    else
-                    {
-                        JOptionPane.showMessageDialog(this, "El archivo ya existe.", "Error", JOptionPane.ERROR_MESSAGE);
-                    }
+                    else JOptionPane.showMessageDialog(this, "El archivo ya existe.", "Error", JOptionPane.ERROR_MESSAGE);
                 }
                 catch (IOException e)
                 {
                     JOptionPane.showMessageDialog(this, "Error al crear el archivo: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                 }
             }
-            else
-            {
-                JOptionPane.showMessageDialog(this, "Extensión inválida. Debe ser .z, .y o .pig", "Error", JOptionPane.ERROR_MESSAGE);
-            }
+            else JOptionPane.showMessageDialog(this, "Extensión inválida. Debe ser .z, .y o .pig", "Error", JOptionPane.ERROR_MESSAGE);
         }
     }//GEN-LAST:event_itemNuevoArchivoActionPerformed
 
     private void itemCerrarArchivoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_itemCerrarArchivoActionPerformed
         int indiceActivo = panelPestañas.getSelectedIndex();
-        if (indiceActivo != -1)
-        {
-            panelPestañas.remove(indiceActivo);
-        }
+        if (indiceActivo != -1) panelPestañas.remove(indiceActivo);
     }//GEN-LAST:event_itemCerrarArchivoActionPerformed
 
     private void itemAnalizarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_itemAnalizarActionPerformed
         Component tabActivo = panelPestañas.getSelectedComponent();
-        if (tabActivo instanceof JScrollPane)
+        if (tabActivo instanceof JScrollPane scroll)
+        {
+            JTextPane editor = (JTextPane) scroll.getViewport().getView();
+            File archivo = (File) editor.getClientProperty("archivoFisico");
+            if (archivo != null) GestorCompilacion.analizarCodigo(archivo.getName(), editor.getText(), tablaMemoria, consolaSalida, consolaC3D, consolaAST);
+            else JOptionPane.showMessageDialog(this, "El archivo no tiene ruta establecida, se debe guardar primero.", "Aviso", JOptionPane.WARNING_MESSAGE);
+        }
+        else JOptionPane.showMessageDialog(this, "No hay ningún archivo abierto para analizar.", "Aviso", JOptionPane.WARNING_MESSAGE);
+    }//GEN-LAST:event_itemAnalizarActionPerformed
+
+    private void itemExportarC3DActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_itemExportarC3DActionPerformed
+        String codigoC3D = consolaC3D.getText();
+        if (codigoC3D == null || codigoC3D.trim().isEmpty())
+        {
+            JOptionPane.showMessageDialog(this, "No hay código C3D para exportar.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        JFileChooser buscador = new JFileChooser();
+        buscador.setSelectedFile(new File("salida.c"));
+        if (buscador.showSaveDialog(this) == JFileChooser.APPROVE_OPTION)
         {
             try
             {
-                JScrollPane scroll = (JScrollPane) tabActivo;
-                JTextPane editor = (JTextPane) scroll.getViewport().getView();
-                File archivo = (File) editor.getClientProperty("archivoFisico");
-                String codigoTexto = editor.getText();
-                if (archivo != null)
-                {
-                    String nombreArchivo = archivo.getName();
-                    consolaSalida.setText(" INICIANDO ANÁLISIS \n");
-                    consolaSalida.append("Archivo: " + nombreArchivo + "\n\n");
-                    CharStream input = CharStreams.fromString(codigoTexto);
-                    if (nombreArchivo.endsWith(".z"))
-                    {
-                        ZetarianoLexer lexer = new ZetarianoLexer(input);
-                        CommonTokenStream tokens = new CommonTokenStream(lexer);
-                        ZetarianoParser parser = new ZetarianoParser(tokens);
-                        ControladorErrores controlador = new ControladorErrores(consolaSalida);
-                        lexer.removeErrorListeners();
-                        parser.removeErrorListeners();
-                        lexer.addErrorListener(controlador);
-                        parser.addErrorListener(controlador);
-                        ParseTree tree = parser.programa();
-                        if (!controlador.hayErrores)
-                        {
-                            consolaSalida.append("Análisis Sintáctico Zetariano completado con éxito.\n");
-                            tablaMemoria.limpiar();
-                            ZetarianoCustomVisitor visitor = new ZetarianoCustomVisitor(tablaMemoria, consolaSalida);
-                            visitor.visit(tree);
-                            if (!visitor.hayErroresSemanticos)
-                            {
-                                consolaSalida.append("Análisis Semántico completado con éxito.\n");
-                                // consolaSalida.append(tablaMemoria.imprimirTabla());
-                                consolaSalida.append("\nCÓDIGO C3D GENERADO\n");
-                                GeneradorC3D gen = GeneradorC3D.getInstancia();
-                                consolaSalida.append(gen.obtenerCodigoCompilable());
-                                consolaSalida.append("\n");
-                            }
-                            else
-                            {
-                                consolaSalida.append("Compilación detenida por errores semánticos.\n");
-                            }
-                        }
-                        else
-                        {
-                            consolaSalida.append("Se encontraron errores en el código Zetariano. No se puede generar el AST.\n");
-                        }
-                    }
-                    else if (nombreArchivo.endsWith(".y"))
-                    {
-                        YLexer lexer = new YLexer(input);
-                        CommonTokenStream tokens = new CommonTokenStream(lexer);
-                        YParser parser = new YParser(tokens);
-                        ControladorErrores controlador = new ControladorErrores(consolaSalida);
-                        lexer.removeErrorListeners();
-                        parser.removeErrorListeners();
-                        lexer.addErrorListener(controlador);
-                        parser.addErrorListener(controlador);
-                        ParseTree tree = parser.programa();
-                        if (!controlador.hayErrores)
-                        {
-                            consolaSalida.append("Análisis Sintáctico Y? completado con éxito.\n");
-                            tablaMemoria.limpiar();
-                            YCustomVisitor visitor = new YCustomVisitor(tablaMemoria, consolaSalida);
-                            visitor.visit(tree);
-                            if (!visitor.hayErroresSemanticos)
-                            {
-                                consolaSalida.append("Análisis Semántico Y? completado con éxito.\n");
-                                consolaSalida.append("\nCÓDIGO C3D GENERADO\n");
-                                GeneradorC3D gen = GeneradorC3D.getInstancia();
-                                consolaSalida.append(gen.obtenerCodigoCompilable());
-                                consolaSalida.append("\n");
-                            }
-                            else
-                            {
-                                consolaSalida.append("Compilación detenida por errores semánticos en Y?.\n");
-                            }
-                        }
-                    }
-                    else if (nombreArchivo.endsWith(".pig"))
-                    {
-                        PigLatinLexer lexer = new PigLatinLexer(input);
-                        CommonTokenStream tokens = new CommonTokenStream(lexer);
-                        PigLatinParser parser = new PigLatinParser(tokens);
-                        ControladorErrores controlador = new ControladorErrores(consolaSalida);
-                        lexer.removeErrorListeners();
-                        parser.removeErrorListeners();
-                        lexer.addErrorListener(controlador);
-                        parser.addErrorListener(controlador);
-                        ParseTree tree = parser.programa();
-                        if (!controlador.hayErrores)
-                        {
-                            consolaSalida.append("Análisis Sintáctico Pig Latin completado con éxito.\n");
-                            tablaMemoria.limpiar();
-                            GeneradorC3D.getInstancia().limpiar();
-                            PigLatinCustomVisitor visitor = new PigLatinCustomVisitor(tablaMemoria, consolaSalida);
-                            visitor.visit(tree);
-                            if (!visitor.hayErroresSemanticos)
-                            {
-                                consolaSalida.append("Análisis Semántico Pig Latin completado con éxito.\n");
-                                consolaSalida.append("\nCÓDIGO C3D GENERADO\n");
-                                GeneradorC3D gen = GeneradorC3D.getInstancia();
-                                consolaSalida.append(gen.obtenerCodigoCompilable());
-                                consolaSalida.append("\n");
-                            }
-                            else
-                            {
-                                consolaSalida.append("Compilación detenida por errores semánticos en Pig Latin.\n");
-                            }
-                        }
-                        else
-                        {
-                            consolaSalida.append("Se encontraron errores en el código Pig Latin. No se puede generar el AST.\n");
-                        }
-                    }
-                    else
-                    {
-                        consolaSalida.append("No se reconoce la extensión para el análisis.\n");
-                    }
-                    consolaSalida.append("\n");
-                }
-                else
-                {
-                    JOptionPane.showMessageDialog(this, "El archivo no tiene una ruta establecida debes guardarlo primero.", "Aviso", JOptionPane.WARNING_MESSAGE);
-                }
+                File archivoDestino = buscador.getSelectedFile();
+                if (!archivoDestino.getName().endsWith(".c")) archivoDestino = new File(archivoDestino.getAbsolutePath() + ".c");
+                GestorArchivos.guardarContenido(archivoDestino, codigoC3D);
+                JOptionPane.showMessageDialog(this, "Código .c exportado exitosamente a " + archivoDestino.getName(), "Exportación Exitosa", JOptionPane.INFORMATION_MESSAGE);
             }
-            catch (Exception e)
+            catch (IOException e)
             {
-                consolaSalida.append("Error crítico durante el análisis: " + e.getMessage() + "\n");
+                JOptionPane.showMessageDialog(this, "Error al exportar el archivo: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
         }
-        else
-        {
-            JOptionPane.showMessageDialog(this, "No hay ningún archivo abierto para analizar.", "Aviso", JOptionPane.WARNING_MESSAGE);
-        }
-    }//GEN-LAST:event_itemAnalizarActionPerformed
+    }//GEN-LAST:event_itemExportarC3DActionPerformed
 
     /**
      * @param args the command line arguments
      */
     public static void main(String args[]) {
-        /* Set the Nimbus look and feel */
-        //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
-        /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.
-         * For details see http://download.oracle.com/javase/tutorial/uiswing/lookandfeel/plaf.html 
-         */
-        try {
-            for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
-                if ("Nimbus".equals(info.getName())) {
+        try
+        {
+            for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels())
+            {
+                if ("Nimbus".equals(info.getName()))
+                {
                     javax.swing.UIManager.setLookAndFeel(info.getClassName());
                     break;
                 }
             }
-        } catch (ReflectiveOperationException | javax.swing.UnsupportedLookAndFeelException ex) {
+        }
+        catch (ReflectiveOperationException | javax.swing.UnsupportedLookAndFeelException ex)
+        {
             logger.log(java.util.logging.Level.SEVERE, null, ex);
         }
-        //</editor-fold>
-
-        /* Create and display the form */
         java.awt.EventQueue.invokeLater(() -> new VentanaPrincipal().setVisible(true));
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JTextArea consolaAST;
+    private javax.swing.JTextArea consolaC3D;
     private javax.swing.JTextArea consolaSalida;
     private javax.swing.JMenuItem itemAbrirProyecto;
     private javax.swing.JMenuItem itemAnalizar;
     private javax.swing.JMenuItem itemCerrarArchivo;
+    private javax.swing.JMenuItem itemExportarC3D;
     private javax.swing.JMenuItem itemGuardar;
     private javax.swing.JMenuItem itemNuevoArchivo;
     private javax.swing.JMenuBar jMenuBar1;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
+    private javax.swing.JScrollPane jScrollPane3;
+    private javax.swing.JScrollPane jScrollPane4;
+    private javax.swing.JTabbedPane jTabbedPane1;
+    private javax.swing.JLabel lblPosicion;
     private javax.swing.JMenu menuArchivo;
     private javax.swing.JMenu menuEjecutar;
     private javax.swing.JTabbedPane panelPestañas;
