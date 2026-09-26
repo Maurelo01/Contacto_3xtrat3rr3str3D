@@ -7,6 +7,9 @@ import mycompany.contacto_3xtrat3rr3str3d.YLexer;
 import mycompany.contacto_3xtrat3rr3str3d.YParser;
 import mycompany.contacto_3xtrat3rr3str3d.ZetarianoLexer;
 import mycompany.contacto_3xtrat3rr3str3d.ZetarianoParser;
+import mycompany.contacto_3xtrat3rr3str3d.ast.ConstructorPigAST;
+import mycompany.contacto_3xtrat3rr3str3d.ast.ConstructorYAST;
+import mycompany.contacto_3xtrat3rr3str3d.ast.ConstructorZetarianoAST;
 import mycompany.contacto_3xtrat3rr3str3d.c3d.GeneradorC3D;
 import mycompany.contacto_3xtrat3rr3str3d.simbolos.TablaSimbolos;
 import mycompany.contacto_3xtrat3rr3str3d.ui.ControladorErrores;
@@ -51,7 +54,8 @@ public class GestorCompilacion
         if (!controlador.hayErrores)
         {
             consola.append("Análisis Sintáctico Zetariano completado con éxito.\n");
-            consolaAST.setText(formatearAST(tree.toStringTree(parser)));
+            ConstructorZetarianoAST astBuilder = new ConstructorZetarianoAST();
+            consolaAST.setText(astBuilder.visit(tree).imprimirArbol());
             ZetarianoCustomVisitor visitor = new ZetarianoCustomVisitor(tabla, consola);
             visitor.visit(tree);
             validarSemanticaYC3D(visitor.isHayErroresSemanticos(), consola, consolaC3D);
@@ -69,7 +73,8 @@ public class GestorCompilacion
         if (!controlador.hayErrores)
         {
             consola.append("Análisis Sintáctico Y? completado con éxito.\n");
-            consolaAST.setText(formatearAST(tree.toStringTree(parser)));
+            ConstructorYAST astBuilder = new ConstructorYAST();
+            consolaAST.setText(astBuilder.visit(tree).imprimirArbol());
             YCustomVisitor visitor = new YCustomVisitor(tabla, consola);
             visitor.visit(tree);
             validarSemanticaYC3D(visitor.isHayErroresSemanticos(), consola, consolaC3D);
@@ -87,7 +92,8 @@ public class GestorCompilacion
         if (!controlador.hayErrores)
         {
             consola.append("Análisis Sintáctico Pig Latin completado con éxito.\n");
-            consolaAST.setText(formatearAST(tree.toStringTree(parser)));
+            ConstructorPigAST astBuilder = new ConstructorPigAST();
+            consolaAST.setText(astBuilder.visit(tree).imprimirArbol());
             PigLatinCustomVisitor visitor = new PigLatinCustomVisitor(tabla, consola);
             visitor.visit(tree);
             validarSemanticaYC3D(visitor.isHayErroresSemanticos(), consola, consolaC3D);
