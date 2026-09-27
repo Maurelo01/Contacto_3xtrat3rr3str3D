@@ -111,9 +111,8 @@ tokens { INDENT, DEDENT }
     // Declaraciones
     declaracion: tipo ID #DeclVariable
             | tipo ID IGUAL expresion #DeclVariableAsig
-            | tipo ID CORCH_IZQ NUMERO? CORCH_DER #DeclArreglo
-            | tipo ID CORCH_IZQ NUMERO? CORCH_DER IGUAL LLAVE_IZQ argumentos? LLAVE_DER #DeclArregloLiteral
-            | tipo ID CORCH_IZQ CORCH_DER CORCH_IZQ CORCH_DER #DeclMatriz
+            | tipo ID (CORCH_IZQ NUMERO? CORCH_DER)+ #DeclArreglo
+            | tipo ID (CORCH_IZQ NUMERO? CORCH_DER)+ IGUAL LLAVE_IZQ argumentos? LLAVE_DER #DeclArregloLiteral
             | ID ID #DeclEstructura
             | ID ID IGUAL LLAVE_IZQ argumentos? LLAVE_DER #DeclEstructuraAsig;
 

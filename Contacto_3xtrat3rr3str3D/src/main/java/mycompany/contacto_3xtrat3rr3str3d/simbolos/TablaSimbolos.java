@@ -37,8 +37,13 @@ public class TablaSimbolos
 
     public boolean insertar(Simbolo simbolo)
     {
+        return insertarConClave(simbolo.getNombre(), simbolo);
+    }
+
+    public boolean insertarConClave(String clave, Simbolo simbolo)
+    {
         Map<String, Simbolo> ambitoActual = pilaAmbitos.peek();
-        if (ambitoActual.containsKey(simbolo.getNombre()))
+        if (ambitoActual.containsKey(clave))
         {
             return false;
         }
@@ -60,8 +65,57 @@ public class TablaSimbolos
                 simbolo.setEnHeap(false);
             }
         }
-        ambitoActual.put(simbolo.getNombre(), simbolo);
+        ambitoActual.put(clave, simbolo);
         return true;
+    }
+
+    public SimboloFuncion buscarFuncion(String base, int numArgs)
+    {
+        String claveAridad = base + "#" + numArgs;
+        for (int i = pilaAmbitos.size() - 1; i >= 0; i--)
+        {
+            Map<String, Simbolo> ambito = pilaAmbitos.get(i);
+            Simbolo s = ambito.get(claveAridad);
+            if (s instanceof SimboloFuncion f && f.getParametros().size() == numArgs) return f;
+        }
+        for (int i = pilaAmbitos.size() - 1; i >= 0; i--)
+        {
+            Map<String, Simbolo> ambito = pilaAmbitos.get(i);
+            Simbolo s = ambito.get(base);
+            if (s instanceof SimboloFuncion f && f.getParametros().size() == numArgs) return f;
+        }
+        for (int i = pilaAmbitos.size() - 1; i >= 0; i--)
+        {
+            Map<String, Simbolo> ambito = pilaAmbitos.get(i);
+            for (Map.Entry<String, Simbolo> e : ambito.entrySet())
+            {
+                String k = e.getKey();
+                if ((k.equals(base) || k.startsWith(base + "#")) && e.getValue() instanceof SimboloFuncion f)
+                {
+                    if (f.getParametros().size() == numArgs) return f;
+                }
+            }
+        }
+        return null;
+    }
+
+    public boolean existeFuncionConAridad(String base, int numArgs)
+    {
+        return buscarFuncion(base, numArgs) != null;
+    }
+
+    public boolean existeFuncionBase(String base)
+    {
+        for (int i = pilaAmbitos.size() - 1; i >= 0; i--)
+        {
+            Map<String, Simbolo> ambito = pilaAmbitos.get(i);
+            for (Map.Entry<String, Simbolo> e : ambito.entrySet())
+            {
+                String k = e.getKey();
+                if ((k.equals(base) || k.startsWith(base + "#")) && e.getValue() instanceof SimboloFuncion) return true;
+            }
+        }
+        return false;
     }
     
     public Map<String, Simbolo> obtenerAmbitoActual()

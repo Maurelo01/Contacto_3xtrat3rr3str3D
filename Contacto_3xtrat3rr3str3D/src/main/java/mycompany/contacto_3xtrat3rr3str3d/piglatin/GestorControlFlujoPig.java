@@ -12,6 +12,36 @@ public class GestorControlFlujoPig extends PigLatinGestorBase
     {
         super(visitor);
     }
+
+    private PigLatinCustomVisitor v()
+    {
+        return (PigLatinCustomVisitor) visitor;
+    }
+
+    public Object procesarInterrupcion(PigLatinParser.InterrupcionContext ctx)
+    {
+        int linea = ctx.getStart().getLine();
+        int columna = ctx.getStart().getCharPositionInLine();
+        if (ctx.PERGE() != null)
+        {
+            if (v().getPilaContinue().isEmpty())
+            {
+                reportarError(linea, columna, "La instrucción perge solo puede usarse dentro de un ciclo.");
+                return null;
+            }
+            generador.agregarSaltoIncondicional(v().getPilaContinue().peek());
+        }
+        else
+        {
+            if (v().getPilaBreak().isEmpty())
+            {
+                reportarError(linea, columna, "La instrucción interrumpe solo puede usarse dentro de un ciclo.");
+                return null;
+            }
+            generador.agregarSaltoIncondicional(v().getPilaBreak().peek());
+        }
+        return null;
+    }
     
     public Object procesarCondicional(PigLatinParser.CondicionalContext ctx)
     {
@@ -19,7 +49,7 @@ public class GestorControlFlujoPig extends PigLatinGestorBase
         for (int i = 0; i < ctx.expresion().size(); i++)
         {
             ResultadoC3D resCondicion = (ResultadoC3D) visitor.visit(ctx.expresion(i));
-            if (resCondicion.getTipo() != TipoDato.BOOLEANO && resCondicion.getTipo() != TipoDato.ERROR) reportarError(ctx.getStart().getLine(), "Condición SI debe ser booleana.");
+            if (resCondicion.getTipo() != TipoDato.BOOLEANO && resCondicion.getTipo() != TipoDato.ERROR) reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), "Condición SI debe ser booleana.");
             String etiquetaFalsa = generador.generarEtiqueta();
             generador.agregarSaltoCondicional(resCondicion.getValorC3D(), "==", "0", etiquetaFalsa);
             visitor.visit(ctx.bloque(i));
@@ -35,24 +65,48 @@ public class GestorControlFlujoPig extends PigLatinGestorBase
     {
         String etiquetaInicio = generador.generarEtiqueta();
         String etiquetaSalida = generador.generarEtiqueta();
-        generador.agregarEtiqueta(etiquetaInicio);
-        ResultadoC3D resCondicion = (ResultadoC3D) visitor.visit(ctx.expresion());
-        if (resCondicion.getTipo() != TipoDato.BOOLEANO && resCondicion.getTipo() != TipoDato.ERROR) reportarError(ctx.getStart().getLine(), "Condición DUM debe ser booleana.");
-        generador.agregarSaltoCondicional(resCondicion.getValorC3D(), "==", "0", etiquetaSalida);
-        visitor.visit(ctx.bloque());
-        generador.agregarSaltoIncondicional(etiquetaInicio);
-        generador.agregarEtiqueta(etiquetaSalida);
+        v().getPilaBreak().push(etiquetaSalida);
+        v().getPilaContinue().push(etiquetaInicio);
+        try
+        {
+            generador.agregarEtiqueta(etiquetaInicio);
+            ResultadoC3D resCondicion = (ResultadoC3D) visitor.visit(ctx.expresion());
+            if (resCondicion.getTipo() != TipoDato.BOOLEANO && resCondicion.getTipo() != TipoDato.ERROR) reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), "Condición DUM debe ser booleana.");
+            generador.agregarSaltoCondicional(resCondicion.getValorC3D(), "==", "0", etiquetaSalida);
+            visitor.visit(ctx.bloque());
+            generador.agregarSaltoIncondicional(etiquetaInicio);
+            generador.agregarEtiqueta(etiquetaSalida);
+        }
+        finally
+        {
+            v().getPilaContinue().pop();
+            v().getPilaBreak().pop();
+        }
         return null;
     }
     
     public Object procesarBucleFacere(PigLatinParser.BucleFacereContext ctx)
     {
         String etiquetaInicio = generador.generarEtiqueta();
-        generador.agregarEtiqueta(etiquetaInicio);
-        visitor.visit(ctx.bloque());
-        ResultadoC3D resCondicion = (ResultadoC3D) visitor.visit(ctx.expresion());
-        if (resCondicion.getTipo() != TipoDato.BOOLEANO && resCondicion.getTipo() != TipoDato.ERROR) reportarError(ctx.getStart().getLine(), "Condición FACERE DUM debe ser booleana.");
-        generador.agregarSaltoCondicional(resCondicion.getValorC3D(), "==", "1", etiquetaInicio);
+        String etiquetaCondicion = generador.generarEtiqueta();
+        String etiquetaSalida = generador.generarEtiqueta();
+        v().getPilaBreak().push(etiquetaSalida);
+        v().getPilaContinue().push(etiquetaCondicion);
+        try
+        {
+            generador.agregarEtiqueta(etiquetaInicio);
+            visitor.visit(ctx.bloque());
+            generador.agregarEtiqueta(etiquetaCondicion);
+            ResultadoC3D resCondicion = (ResultadoC3D) visitor.visit(ctx.expresion());
+            if (resCondicion.getTipo() != TipoDato.BOOLEANO && resCondicion.getTipo() != TipoDato.ERROR) reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), "Condición FACERE DUM debe ser booleana.");
+            generador.agregarSaltoCondicional(resCondicion.getValorC3D(), "==", "1", etiquetaInicio);
+            generador.agregarEtiqueta(etiquetaSalida);
+        }
+        finally
+        {
+            v().getPilaContinue().pop();
+            v().getPilaBreak().pop();
+        }
         return null;
     }
     
@@ -61,15 +115,27 @@ public class GestorControlFlujoPig extends PigLatinGestorBase
         tabla.entrarAmbito();
         visitor.visit(ctx.declaracion());
         String etiquetaInicio = generador.generarEtiqueta();
+        String etiquetaContinuar = generador.generarEtiqueta();
         String etiquetaSalida = generador.generarEtiqueta();
-        generador.agregarEtiqueta(etiquetaInicio);
-        ResultadoC3D resCondicion = (ResultadoC3D) visitor.visit(ctx.expresion());
-        if (resCondicion.getTipo() != TipoDato.BOOLEANO && resCondicion.getTipo() != TipoDato.ERROR) reportarError(ctx.getStart().getLine(), "Condición PER debe ser booleana.");
-        generador.agregarSaltoCondicional(resCondicion.getValorC3D(), "==", "0", etiquetaSalida);
-        visitor.visit(ctx.bloque());
-        visitor.visit(ctx.actualizacion());
-        generador.agregarSaltoIncondicional(etiquetaInicio);
-        generador.agregarEtiqueta(etiquetaSalida);
+        v().getPilaBreak().push(etiquetaSalida);
+        v().getPilaContinue().push(etiquetaContinuar);
+        try
+        {
+            generador.agregarEtiqueta(etiquetaInicio);
+            ResultadoC3D resCondicion = (ResultadoC3D) visitor.visit(ctx.expresion());
+            if (resCondicion.getTipo() != TipoDato.BOOLEANO && resCondicion.getTipo() != TipoDato.ERROR) reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), "Condición PER debe ser booleana.");
+            generador.agregarSaltoCondicional(resCondicion.getValorC3D(), "==", "0", etiquetaSalida);
+            visitor.visit(ctx.bloque());
+            generador.agregarEtiqueta(etiquetaContinuar);
+            visitor.visit(ctx.actualizacion());
+            generador.agregarSaltoIncondicional(etiquetaInicio);
+            generador.agregarEtiqueta(etiquetaSalida);
+        }
+        finally
+        {
+            v().getPilaContinue().pop();
+            v().getPilaBreak().pop();
+        }
         tabla.salirAmbito();
         return null;
     }
@@ -82,9 +148,10 @@ public class GestorControlFlujoPig extends PigLatinGestorBase
             String idVariable = ctx.ID().getText();
             Simbolo sim = tabla.buscar(idVariable);
             int linea = ctx.getStart().getLine();
+            int columna = ctx.getStart().getCharPositionInLine();
             if (sim == null)
             {
-                reportarError(linea, "La variable '" + idVariable + "' no existe.");
+                reportarError(linea, columna, "La variable " + idVariable + " no existe.");
                 return null;
             }
             String temporalAnterior = generador.generarTemporal();

@@ -72,13 +72,12 @@ public class ConstructorPigAST extends PigLatinBaseVisitor<NodoAST>
     public NodoAST visitDeclaracionEstructura(PigLatinParser.DeclaracionEstructuraContext ctx)
     {
         NodoAST decl = new NodoAST("Instancia Estructura: " + ctx.tipo().getText() + " " + ctx.ID().getText());
-        if (ctx.agrupacionValores() != null)
+        if (ctx.agrupacionValores() != null && ctx.agrupacionValores().argumentos() != null)
         {
             NodoAST args = new NodoAST("Valores Iniciales");
-            for (int i = 0; i < ctx.agrupacionValores().getChildCount(); i++)
+            for (PigLatinParser.ExpresionContext exp : ctx.agrupacionValores().argumentos().expresion())
             {
-                NodoAST hijo = visit(ctx.agrupacionValores().getChild(i));
-                if (hijo != null) args.agregarHijo(hijo);
+                args.agregarHijo(visit(exp));
             }
             decl.agregarHijo(args);
         }
@@ -88,6 +87,22 @@ public class ConstructorPigAST extends PigLatinBaseVisitor<NodoAST>
     public NodoAST visitDeclaracionObjeto(PigLatinParser.DeclaracionObjetoContext ctx)
     {
         return new NodoAST("Instancia Objeto: " + ctx.ID(1).getText() + " " + ctx.ID(0).getText());
+    }
+    @Override
+    public NodoAST visitDeclaracionArray(PigLatinParser.DeclaracionArrayContext ctx)
+    {
+        NodoAST decl = new NodoAST("Declaracion Arreglo: " + ctx.tipo().getText() + " " + ctx.ID().getText());
+        decl.agregarHijo("Tamaño: " + ctx.expresion().getText());
+        if (ctx.agrupacionValores() != null && ctx.agrupacionValores().argumentos() != null)
+        {
+            NodoAST args = new NodoAST("Valores Iniciales");
+            for (PigLatinParser.ExpresionContext exp : ctx.agrupacionValores().argumentos().expresion())
+            {
+                args.agregarHijo(visit(exp));
+            }
+            decl.agregarHijo(args);
+        }
+        return decl;
     }
     
     // ASIGNACION
@@ -143,6 +158,17 @@ public class ConstructorPigAST extends PigLatinBaseVisitor<NodoAST>
             llamada.agregarHijo(args);
         }
         return llamada;
+    }
+    @Override
+    public NodoAST visitInstruccion(PigLatinParser.InstruccionContext ctx)
+    {
+        return visit(ctx.getChild(0));
+    }
+    @Override
+    public NodoAST visitInterrupcion(PigLatinParser.InterrupcionContext ctx)
+    {
+        if (ctx.PERGE() != null) return new NodoAST("Continuar (perge)");
+        return new NodoAST("Interrumpir (interrumpe)");
     }
 
     // CONTROL DE FLUJO

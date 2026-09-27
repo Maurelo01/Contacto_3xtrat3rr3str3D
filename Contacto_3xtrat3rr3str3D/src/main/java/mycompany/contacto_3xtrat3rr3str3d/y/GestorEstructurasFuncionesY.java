@@ -14,6 +14,11 @@ public class GestorEstructurasFuncionesY extends YGestorBase
     {
         super(visitor);
     }
+
+    private YCustomVisitor v()
+    {
+        return (YCustomVisitor) visitor;
+    }
     
     public Object procesarDefinicionFuncion(YParser.DefinicionFuncionContext ctx)
     {
@@ -47,7 +52,7 @@ public class GestorEstructurasFuncionesY extends YGestorBase
                 simMetodo.agregarParametro(new SimboloVariable(paramId, ControlTipos.normalizarTipo(paramTipoStr), linea, columna));
             }
         }
-        if (!tabla.insertar(simMetodo)) reportarError(linea, "La función '" + id + "' ya existe.");
+        if (!tabla.insertar(simMetodo)) reportarError(linea, columna,"La función " + id + " ya existe.");
         tabla.resetearOffsetLocal();
         tabla.entrarAmbito();
         if (ctx.parametros() != null)
@@ -81,9 +86,19 @@ public class GestorEstructurasFuncionesY extends YGestorBase
         if (id.equals("principal") || id.equals("main")) resultado = visitor.visit(ctx.bloque());
         else
         {
-            generador.iniciarMetodo(id);
-            resultado = visitor.visit(ctx.bloque());
-            generador.cerrarMetodo();
+            String etiquetaRetorno = generador.generarEtiqueta();
+            v().getPilaReturn().push(etiquetaRetorno);
+            try
+            {
+                generador.iniciarMetodo(id);
+                resultado = visitor.visit(ctx.bloque());
+                generador.agregarEtiqueta(etiquetaRetorno);
+                generador.cerrarMetodo();
+            }
+            finally
+            {
+                v().getPilaReturn().pop();
+            }
         }
         tabla.salirAmbito();
         return resultado;
@@ -95,33 +110,45 @@ public class GestorEstructurasFuncionesY extends YGestorBase
         int linea = ctx.ID().getSymbol().getLine();
         int columna = ctx.ID().getSymbol().getCharPositionInLine();
         SimboloClase simEstructura = new SimboloClase(id, linea, columna);
-        int contadorAtributos = 0;
-        for (YParser.AtributoEstructuraContext atributo : ctx.atributoEstructura()) contadorAtributos++;
-        simEstructura.setTamañoHeapObjeto(contadorAtributos);
         tabla.insertar(simEstructura);
         tabla.resetearOffsetLocal();
         tabla.entrarAmbito();
         int offsetEstructura = 0;
         for (YParser.AtributoEstructuraContext atributo : ctx.atributoEstructura())
         {
-            String attrId = "";
-            String attrTipo = "";
-            if (atributo instanceof YParser.AtributoNormalContext atributoNormalContext)
+            if (atributo instanceof YParser.AtributoNormalContext attrNorm)
             {
-                attrId = atributoNormalContext.ID().getText();
-                attrTipo = atributoNormalContext.tipo().getText();
+                String attrId = attrNorm.ID().getText();
+                String attrTipo = attrNorm.tipo().getText();
+                TipoDato tipoNorm = ControlTipos.normalizarTipo(attrTipo);
+                if (attrNorm.NUMERO() != null)
+                { 
+                    int tamArreglo = Integer.parseInt(attrNorm.NUMERO().getText());
+                    SimboloArreglo simArr = new SimboloArreglo(attrId, tipoNorm, linea, columna, 1);
+                    simArr.setTamañoTotal(tamArreglo);
+                    simArr.agregarTamañoDimension(tamArreglo);
+                    simArr.setOffset(offsetEstructura);
+                    offsetEstructura += tamArreglo;
+                    tabla.insertar(simArr);
+                }
+                else
+                {
+                    SimboloVariable simAttr = new SimboloVariable(attrId, tipoNorm, linea, columna);
+                    simAttr.setOffset(offsetEstructura++);
+                    tabla.insertar(simAttr);
+                }
             }
-            else if (atributo instanceof YParser.AtributoEstructuraAnidadaContext atributoEstructuraAnidadaContext)
+            else if (atributo instanceof YParser.AtributoEstructuraAnidadaContext attrAnidado)
             {
-                attrId = atributoEstructuraAnidadaContext.ID(1).getText();
-                attrTipo = atributoEstructuraAnidadaContext.ID(0).getText();
+                String attrTipo = attrAnidado.ID(0).getText();
+                String attrId = attrAnidado.ID(1).getText();
+                SimboloVariable simAttr = new SimboloVariable(attrId, TipoDato.OBJETO, linea, columna);
+                simAttr.setReferenciaClase(attrTipo);
+                simAttr.setOffset(offsetEstructura++);
+                tabla.insertar(simAttr);
             }
-            TipoDato tipoNorm = ControlTipos.normalizarTipo(attrTipo);
-            SimboloVariable simAttr = new SimboloVariable(attrId, tipoNorm, linea, columna);
-            if (tipoNorm == TipoDato.OBJETO) simAttr.setReferenciaClase(attrTipo);
-            tabla.insertar(simAttr);
-            simAttr.setOffset(offsetEstructura++);
         }
+        simEstructura.setTamañoHeapObjeto(offsetEstructura);
         Map<String, Simbolo> atributosLocales = tabla.obtenerAmbitoActual();
         for (Simbolo sim : atributosLocales.values())
         {
@@ -145,7 +172,7 @@ public class GestorEstructurasFuncionesY extends YGestorBase
                     generador.agregarFuncionNativa(GeneradorFuncionesNativas.getNativaImprimirString());
                     generador.agregarLlamadaNativa("nativa_imprimir_string", resExpr.getValorC3D());
                 }
-                else reportarError(ctx.getStart().getLine(), "Tipo " + resExpr.getTipo() + " no soportado para impresión.");
+                else reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(),"Tipo " + resExpr.getTipo() + " no soportado para impresión.");
             }
         }
         generador.agregarPrint("c", "10"); 
@@ -159,7 +186,8 @@ public class GestorEstructurasFuncionesY extends YGestorBase
             ResultadoC3D resExpr = (ResultadoC3D) visitor.visit(ctx.expresion());
             if (resExpr != null && resExpr.getTipo() != TipoDato.ERROR) generador.agregarSetStack("punteroStack", resExpr.getValorC3D());
         }
-        generador.agregarCodigoBruto("    return;");
+        if (v().getPilaReturn().isEmpty()) generador.agregarCodigoBruto("    return;");
+        else generador.agregarSaltoIncondicional(v().getPilaReturn().peek());
         return null;
     }
 
@@ -169,11 +197,11 @@ public class GestorEstructurasFuncionesY extends YGestorBase
         Simbolo sim = tabla.buscar(idFuncion);
         if (sim == null || !(sim instanceof SimboloFuncion))
         {
-            reportarError(ctx.getStart().getLine(), "La función '" + idFuncion + "' no existe.");
+            reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(),"La función " + idFuncion + " no existe.");
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
         SimboloFuncion funcion = (SimboloFuncion) sim;
-        int tamanoEntornoActual = tabla.obtenerAmbitoActual().size() + 1;
+        int tamañoEntornoActual = tabla.obtenerAmbitoActual().size() + 1;
         if (ctx.argumentos() != null)
         {
             for (int i = 0; i < ctx.argumentos().expresion().size(); i++)
@@ -181,16 +209,16 @@ public class GestorEstructurasFuncionesY extends YGestorBase
                 ResultadoC3D resArg = (ResultadoC3D) visitor.visit(ctx.argumentos().expresion(i));
                 String tempPos = generador.generarTemporal();
                 int offsetDestino = i + 1;
-                generador.agregarAsignacion(tempPos, "punteroStack", "+", String.valueOf(tamanoEntornoActual + offsetDestino));
+                generador.agregarAsignacion(tempPos, "punteroStack", "+", String.valueOf(tamañoEntornoActual + offsetDestino));
                 generador.agregarSetStack(tempPos, resArg.getValorC3D());
             }
         }
         generador.agregarComentario("Inicio llamada a funcion: " + idFuncion);
-        generador.agregarAsignacion("punteroStack", "punteroStack", "+", String.valueOf(tamanoEntornoActual));
+        generador.agregarAsignacion("punteroStack", "punteroStack", "+", String.valueOf(tamañoEntornoActual));
         generador.agregarLlamadaNativa("metodo_" + idFuncion, "");
         String tempReturn = generador.generarTemporal();
         generador.agregarGetStack(tempReturn, "punteroStack");
-        generador.agregarAsignacion("punteroStack", "punteroStack", "-", String.valueOf(tamanoEntornoActual));
+        generador.agregarAsignacion("punteroStack", "punteroStack", "-", String.valueOf(tamañoEntornoActual));
         generador.agregarComentario("Fin de llamada a: " + idFuncion);
         return new ResultadoC3D(funcion.getTipo(), tempReturn);
     }

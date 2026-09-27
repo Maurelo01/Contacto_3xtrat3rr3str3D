@@ -3,9 +3,12 @@ package mycompany.contacto_3xtrat3rr3str3d.visitors;
 import mycompany.contacto_3xtrat3rr3str3d.simbolos.*;
 import mycompany.contacto_3xtrat3rr3str3d.c3d.GeneradorC3D;
 import javax.swing.JTextArea;
+import java.io.File;
+import java.util.Stack;
 import mycompany.contacto_3xtrat3rr3str3d.PigLatinBaseVisitor;
 import mycompany.contacto_3xtrat3rr3str3d.PigLatinParser;
 import mycompany.contacto_3xtrat3rr3str3d.piglatin.*;
+import mycompany.contacto_3xtrat3rr3str3d.servicios.GestorImportaciones;
 import mycompany.contacto_3xtrat3rr3str3d.utils.*;
 
 public class PigLatinCustomVisitor extends PigLatinBaseVisitor<Object>
@@ -14,6 +17,11 @@ public class PigLatinCustomVisitor extends PigLatinBaseVisitor<Object>
     private JTextArea consola;
     public boolean hayErroresSemanticos = false;
     private GeneradorC3D generador = GeneradorC3D.getInstancia();
+    private Stack<String> pilaBreak = new Stack<>();
+    private Stack<String> pilaContinue = new Stack<>();
+    private Stack<String> pilaReturn = new Stack<>();
+    private File archivoActual;
+    private File carpetaProyecto;
     
     private GestorVariablesPig gestorVariablesPig;
     private GestorFuncionesPig gestorFuncionesPig;
@@ -28,6 +36,42 @@ public class PigLatinCustomVisitor extends PigLatinBaseVisitor<Object>
         this.gestorFuncionesPig = new GestorFuncionesPig(this);
         this.gestorControlFlujoPig = new GestorControlFlujoPig(this);
         this.gestorExpresionesPig = new GestorExpresionesPig(this);
+    }
+
+    public PigLatinCustomVisitor(TablaSimbolos tabla, JTextArea consola, File archivoActual, File carpetaProyecto)
+    {
+        this(tabla, consola);
+        this.archivoActual = archivoActual;
+        this.carpetaProyecto = carpetaProyecto;
+    }
+
+    public Stack<String> getPilaBreak()
+    {
+        return pilaBreak;
+    }
+    public Stack<String> getPilaContinue()
+    {
+        return pilaContinue;
+    }
+    public Stack<String> getPilaReturn()
+    {
+        return pilaReturn;
+    }
+    public File getArchivoActual()
+    {
+        return archivoActual;
+    }
+    public void setArchivoActual(File f)
+    {
+        this.archivoActual = f;
+    }
+    public File getCarpetaProyecto()
+    {
+        return carpetaProyecto;
+    }
+    public void setCarpetaProyecto(File f)
+    {
+        this.carpetaProyecto = f;
     }
     
     public TablaSimbolos getTabla()
@@ -56,6 +100,11 @@ public class PigLatinCustomVisitor extends PigLatinBaseVisitor<Object>
     public Object visitPrograma(PigLatinParser.ProgramaContext ctx)
     {
         generador.limpiar();
+        if (ctx.importacion() != null && !ctx.importacion().isEmpty())
+        {
+            GestorImportaciones.procesarImportaciones(ctx.importacion(), this);
+            if (hayErroresSemanticos) return null;
+        }
         if (ctx.seccionDeclaraciones() != null) visit(ctx.seccionDeclaraciones());
         int cantidadGlobales = tabla.obtenerAmbitoActual().size();
         if (cantidadGlobales > 0)
@@ -86,6 +135,11 @@ public class PigLatinCustomVisitor extends PigLatinBaseVisitor<Object>
     public Object visitDeclaracionObjeto(PigLatinParser.DeclaracionObjetoContext ctx)
     {
         return gestorVariablesPig.procesarDeclaracionObjeto(ctx);
+    }
+    @Override
+    public Object visitDeclaracionArray(PigLatinParser.DeclaracionArrayContext ctx)
+    {
+        return gestorVariablesPig.procesarDeclaracionArray(ctx);
     }
     
     // ASIGNACIONES
@@ -148,6 +202,17 @@ public class PigLatinCustomVisitor extends PigLatinBaseVisitor<Object>
     public Object visitActualizacion(PigLatinParser.ActualizacionContext ctx)
     {
         return gestorControlFlujoPig.procesarActualizacion(ctx);
+    }
+    @Override
+    public Object visitInterrupcion(PigLatinParser.InterrupcionContext ctx)
+    {
+        return gestorControlFlujoPig.procesarInterrupcion(ctx);
+    }
+    @Override
+    public Object visitImportacion(PigLatinParser.ImportacionContext ctx)
+    {
+        // Las importaciones ya fueron procesadas en visitPrograma (Fase 6); se ignoran aquí
+        return null;
     }
     
     // EXPRESIONES

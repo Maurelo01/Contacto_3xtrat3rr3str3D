@@ -5,6 +5,7 @@ import mycompany.contacto_3xtrat3rr3str3d.c3d.GeneradorC3D;
 import mycompany.contacto_3xtrat3rr3str3d.YBaseVisitor;
 import mycompany.contacto_3xtrat3rr3str3d.YParser;
 import javax.swing.JTextArea;
+import java.util.Stack;
 import mycompany.contacto_3xtrat3rr3str3d.utils.*;
 import mycompany.contacto_3xtrat3rr3str3d.y.*;
 
@@ -14,6 +15,10 @@ public class YCustomVisitor extends YBaseVisitor<Object>
     private JTextArea consola;
     public boolean hayErroresSemanticos = false;
     private GeneradorC3D generador = GeneradorC3D.getInstancia();
+    private Stack<String> pilaBreak = new Stack<>();
+    private Stack<String> pilaContinue = new Stack<>();
+    private Stack<String> pilaReturn = new Stack<>();
+    private boolean limpiarAlIniciar = true;
     
     private GestorEstructurasFuncionesY gestorEstructurasFuncionesY;
     private GestorVariablesY gestorVariablesY;
@@ -28,6 +33,29 @@ public class YCustomVisitor extends YBaseVisitor<Object>
         this.gestorVariablesY = new GestorVariablesY(this);
         this.gestorControlFlujoY = new GestorControlFlujoY(this);
         this.gestorExpresionesY = new GestorExpresionesY(this);
+    }
+
+    public YCustomVisitor(TablaSimbolos tabla, JTextArea consola, boolean limpiarAlIniciar)
+    {
+        this(tabla, consola);
+        this.limpiarAlIniciar = limpiarAlIniciar;
+    }
+
+    public Stack<String> getPilaBreak()
+    { 
+            return pilaBreak;
+    }
+    public Stack<String> getPilaContinue()
+    {
+        return pilaContinue;
+    }
+    public Stack<String> getPilaReturn()
+    {
+        return pilaReturn;
+    }
+    public void setLimpiarAlIniciar(boolean v)
+    {
+        this.limpiarAlIniciar = v;
     }
     
     public TablaSimbolos getTabla()
@@ -54,7 +82,7 @@ public class YCustomVisitor extends YBaseVisitor<Object>
     @Override
     public Object visitPrograma(YParser.ProgramaContext ctx)
     {
-        generador.limpiar(); 
+        if (limpiarAlIniciar) generador.limpiar(); 
         return super.visitPrograma(ctx);
     }
     @Override
@@ -99,7 +127,7 @@ public class YCustomVisitor extends YBaseVisitor<Object>
         return gestorEstructurasFuncionesY.procesarLlamadaFuncion(ctx.llamadaFuncion());
     }
     
-    // VARIABLES
+    // DECLARACIONES
     
     @Override
     public Object visitDeclVariableAsig(YParser.DeclVariableAsigContext ctx)
@@ -120,6 +148,17 @@ public class YCustomVisitor extends YBaseVisitor<Object>
     public Object visitDeclEstructuraAsig(YParser.DeclEstructuraAsigContext ctx)
     {
         return gestorVariablesY.procesarDeclEstructuraAsig(ctx);
+    }
+    @Override
+    public Object visitDeclArreglo(YParser.DeclArregloContext ctx)
+    {
+        return gestorVariablesY.procesarDeclArreglo(ctx);
+    }
+
+    @Override
+    public Object visitDeclArregloLiteral(YParser.DeclArregloLiteralContext ctx)
+    {
+        return gestorVariablesY.procesarDeclArregloLiteral(ctx);
     }
     
     // ASIGNACIONES
@@ -161,6 +200,16 @@ public class YCustomVisitor extends YBaseVisitor<Object>
     public Object visitCondicionalElegir(YParser.CondicionalElegirContext ctx)
     {
         return gestorControlFlujoY.procesarCondicionalElegir(ctx);
+    }
+    @Override
+    public Object visitInstruccionRomper(YParser.InstruccionRomperContext ctx)
+    {
+        return gestorControlFlujoY.procesarBreak(ctx);
+    }
+    @Override
+    public Object visitInstruccionContinuar(YParser.InstruccionContinuarContext ctx)
+    {
+        return gestorControlFlujoY.procesarContinue(ctx);
     }
 
     // EXPRESIONES

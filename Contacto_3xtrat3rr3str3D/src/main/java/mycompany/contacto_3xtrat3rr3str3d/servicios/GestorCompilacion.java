@@ -23,6 +23,11 @@ public class GestorCompilacion
 {
     public static void analizarCodigo(String nombreArchivo, String codigoTexto, TablaSimbolos tablaMemoria, JTextArea consolaSalida, JTextArea consolaC3D, JTextArea consolaAST)
     {
+        analizarCodigo(nombreArchivo, codigoTexto, tablaMemoria, consolaSalida, consolaC3D, consolaAST, null, null);
+    }
+
+    public static void analizarCodigo(String nombreArchivo, String codigoTexto, TablaSimbolos tablaMemoria, JTextArea consolaSalida, JTextArea consolaC3D, JTextArea consolaAST, java.io.File archivoFisico, java.io.File carpetaProyecto)
+    {
         consolaSalida.setText(" INICIANDO ANÁLISIS \n");
         consolaSalida.append("Archivo: " + nombreArchivo + "\n\n");
         consolaC3D.setText("");
@@ -35,7 +40,7 @@ public class GestorCompilacion
         {
             if (nombreArchivo.endsWith(".z")) ejecutarZetariano(input, controlador, tablaMemoria, consolaSalida, consolaC3D, consolaAST);
             else if (nombreArchivo.endsWith(".y")) ejecutarY(input, controlador, tablaMemoria, consolaSalida, consolaC3D, consolaAST);
-            else if (nombreArchivo.endsWith(".pig")) ejecutarPigLatin(input, controlador, tablaMemoria, consolaSalida, consolaC3D, consolaAST);
+            else if (nombreArchivo.endsWith(".pig")) ejecutarPigLatin(input, controlador, tablaMemoria, consolaSalida, consolaC3D, consolaAST, archivoFisico, carpetaProyecto);
             else consolaSalida.append("No se reconoce la extensión para el análisis, debe ser .pig/.y/.z.\n");
         }
         catch (Exception e)
@@ -84,6 +89,11 @@ public class GestorCompilacion
 
     private static void ejecutarPigLatin(CharStream input, ControladorErrores controlador, TablaSimbolos tabla, JTextArea consola, JTextArea consolaC3D, JTextArea consolaAST)
     {
+        ejecutarPigLatin(input, controlador, tabla, consola, consolaC3D, consolaAST, null, null);
+    }
+
+    private static void ejecutarPigLatin(CharStream input, ControladorErrores controlador, TablaSimbolos tabla, JTextArea consola, JTextArea consolaC3D, JTextArea consolaAST, java.io.File archivoFisico, java.io.File carpetaProyecto)
+    {
         PigLatinLexer lexer = new PigLatinLexer(input);
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         PigLatinParser parser = new PigLatinParser(tokens);
@@ -94,7 +104,9 @@ public class GestorCompilacion
             consola.append("Análisis Sintáctico Pig Latin completado con éxito.\n");
             ConstructorPigAST astBuilder = new ConstructorPigAST();
             consolaAST.setText(astBuilder.visit(tree).imprimirArbol());
-            PigLatinCustomVisitor visitor = new PigLatinCustomVisitor(tabla, consola);
+            PigLatinCustomVisitor visitor;
+            if (archivoFisico != null || carpetaProyecto != null) visitor = new PigLatinCustomVisitor(tabla, consola, archivoFisico, carpetaProyecto);
+            else visitor = new PigLatinCustomVisitor(tabla, consola);
             visitor.visit(tree);
             validarSemanticaYC3D(visitor.isHayErroresSemanticos(), consola, consolaC3D);
         }

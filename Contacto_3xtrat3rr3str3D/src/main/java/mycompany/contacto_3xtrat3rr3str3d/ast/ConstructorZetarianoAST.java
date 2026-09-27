@@ -51,6 +51,17 @@ public class ConstructorZetarianoAST extends ZetarianoBaseVisitor<NodoAST>
         }
         return nodoBloque;
     }
+    @Override
+    public NodoAST visitBloqueMetodo(ZetarianoParser.BloqueMetodoContext ctx)
+    {
+        NodoAST nodoBloque = new NodoAST("Bloque de Metodo");
+        for (ZetarianoParser.InstruccionContext inst : ctx.instruccion())
+        {
+            NodoAST hijo = visit(inst);
+            if (hijo != null) nodoBloque.agregarHijo(hijo);
+        }
+        return nodoBloque;
+    }
     
     // ESTRUCTURAS
     
@@ -86,6 +97,16 @@ public class ConstructorZetarianoAST extends ZetarianoBaseVisitor<NodoAST>
         return inst;
     }
     @Override
+    public NodoAST visitInstanciaArray(ZetarianoParser.InstanciaArrayContext ctx)
+    {
+        NodoAST inst = new NodoAST("Instancia Arreglo: " + ctx.tipoBase().getText());
+        for (ZetarianoParser.ExpresionContext exp : ctx.expresion())
+        {
+            inst.agregarHijo("Dimension: " + exp.getText());
+        }
+        return inst;
+    }
+    @Override
     public NodoAST visitLlamadaFuncionOMetodo(ZetarianoParser.LlamadaFuncionOMetodoContext ctx)
     {
         NodoAST llamada = new NodoAST("Llamada: " + ctx.getChild(0).getText());
@@ -109,7 +130,23 @@ public class ConstructorZetarianoAST extends ZetarianoBaseVisitor<NodoAST>
             if (ctx.expresion() != null) ret.agregarHijo(visit(ctx.expresion()));
             return ret;
         }
-        return super.visitInstruccion(ctx);
+        if (ctx.BREAK() != null) return new NodoAST("Romper (Break)");
+        if (ctx.CONTINUE() != null) return new NodoAST("Continuar (Continue)");
+        if (ctx.PAREN_IZQ() != null && ctx.acceso() != null)
+        {
+            NodoAST llamada = new NodoAST("Llamada a Metodo: " + ctx.acceso().getText());
+            if (ctx.argumentos() != null)
+            {
+                NodoAST args = new NodoAST("Argumentos");
+                for (ZetarianoParser.ExpresionContext exp : ctx.argumentos().expresion())
+                {
+                    args.agregarHijo(visit(exp));
+                }
+                llamada.agregarHijo(args);
+            }
+            return llamada;
+        }
+        return visit(ctx.getChild(0));
     }
     
     // VARIABLES
@@ -131,6 +168,21 @@ public class ConstructorZetarianoAST extends ZetarianoBaseVisitor<NodoAST>
     public NodoAST visitIncremento(ZetarianoParser.IncrementoContext ctx)
     {
         return new NodoAST("Incremento/Decremento: " + ctx.getText());
+    }
+    @Override
+    public NodoAST visitDeclArrayLiteral(ZetarianoParser.DeclArrayLiteralContext ctx)
+    {
+        NodoAST decl = new NodoAST("Arreglo Literal: " + ctx.tipo().getText() + " " + ctx.ID().getText());
+        if (ctx.argumentos() != null)
+        {
+            NodoAST args = new NodoAST("Valores Iniciales");
+            for (ZetarianoParser.ExpresionContext exp : ctx.argumentos().expresion())
+            {
+                args.agregarHijo(visit(exp));
+            }
+            decl.agregarHijo(args);
+        }
+        return decl;
     }
     
     // ASIGNACION

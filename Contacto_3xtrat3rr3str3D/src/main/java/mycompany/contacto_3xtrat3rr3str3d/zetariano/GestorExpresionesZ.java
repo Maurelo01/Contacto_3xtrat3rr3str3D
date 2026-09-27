@@ -1,15 +1,15 @@
 package mycompany.contacto_3xtrat3rr3str3d.zetariano;
 
+import java.util.ArrayList;
 import java.util.List;
 import mycompany.contacto_3xtrat3rr3str3d.ZetarianoParser;
 import mycompany.contacto_3xtrat3rr3str3d.simbolos.Simbolo;
 import mycompany.contacto_3xtrat3rr3str3d.simbolos.SimboloVariable;
 import mycompany.contacto_3xtrat3rr3str3d.simbolos.TipoDato;
 import mycompany.contacto_3xtrat3rr3str3d.utils.ControlTipos;
-import mycompany.contacto_3xtrat3rr3str3d.utils.GestorPunteros;
+import mycompany.contacto_3xtrat3rr3str3d.utils.GestorArreglos;
 import mycompany.contacto_3xtrat3rr3str3d.utils.ResultadoC3D;
 import mycompany.contacto_3xtrat3rr3str3d.visitors.ZetarianoCustomVisitor;
-import org.antlr.v4.runtime.tree.TerminalNode;
 
 public class GestorExpresionesZ extends ZetarianoGestorBase
 {
@@ -29,7 +29,7 @@ public class GestorExpresionesZ extends ZetarianoGestorBase
         else tipoResultado = ControlTipos.resolverAritmetica(izq.getTipo(), der.getTipo());
         if (tipoResultado == TipoDato.ERROR)
         {
-            reportarError(ctx.getStart().getLine(), "Incompatibilidad de tipos en la operación (" + izq.getTipo() + " " + operador + " " + der.getTipo() + ").");
+            reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), "Incompatibilidad de tipos en la operación (" + izq.getTipo() + " " + operador + " " + der.getTipo() + ").");
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
         String temporal = generador.generarTemporal();
@@ -45,7 +45,7 @@ public class GestorExpresionesZ extends ZetarianoGestorBase
         TipoDato tipoResultado = ControlTipos.resolverAritmetica(izq.getTipo(), der.getTipo());
         if (tipoResultado == TipoDato.ERROR)
         {
-            reportarError(ctx.getStart().getLine(), "Incompatibilidad de tipos (" + izq.getTipo() + " y " + der.getTipo() + ").");
+            reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), "Incompatibilidad de tipos (" + izq.getTipo() + " y " + der.getTipo() + ").");
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
         String temporal = generador.generarTemporal();
@@ -63,7 +63,7 @@ public class GestorExpresionesZ extends ZetarianoGestorBase
         TipoDato resultado = ControlTipos.resolverRelacional(izq.getTipo(), der.getTipo());
         if (resultado == TipoDato.ERROR)
         {
-            reportarError(ctx.getStart().getLine(), "No se pueden comparar relacionalmente " + izq.getTipo() + " y " + der.getTipo() + ".");
+            reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), "No se pueden comparar relacionalmente " + izq.getTipo() + " y " + der.getTipo() + ".");
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
         String operador = ctx.MAYOR() != null ? ">" : ctx.MAYOR_IGUAL() != null ? ">=" : ctx.MENOR() != null ? "<" : "<=";
@@ -90,7 +90,7 @@ public class GestorExpresionesZ extends ZetarianoGestorBase
         TipoDato resultado = ControlTipos.resolverIgualdad(izq.getTipo(), der.getTipo());
         if (resultado == TipoDato.ERROR)
         {
-            reportarError(ctx.getStart().getLine(), "No se puede evaluar igualdad entre " + izq.getTipo() + " y " + der.getTipo() + ".");
+            reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), "No se puede evaluar igualdad entre " + izq.getTipo() + " y " + der.getTipo() + ".");
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
         String operador = ctx.IGUALIGUAL() != null ? "==" : "!=";
@@ -123,7 +123,7 @@ public class GestorExpresionesZ extends ZetarianoGestorBase
         TipoDato resultado = ControlTipos.resolverLogica(izq.getTipo(), der.getTipo());
         if (resultado == TipoDato.ERROR)
         {
-            reportarError(ctx.getStart().getLine(), "El operador && requiere booleanos.");
+            reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), "El operador && requiere booleanos.");
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
         generador.agregarSaltoCondicional(der.getValorC3D(), "==", "1", etVerdadera);
@@ -150,7 +150,7 @@ public class GestorExpresionesZ extends ZetarianoGestorBase
         if (der.getTipo() == TipoDato.ERROR) return new ResultadoC3D(TipoDato.ERROR, "");
         TipoDato resultado = ControlTipos.resolverLogica(izq.getTipo(), der.getTipo());
         if (resultado == TipoDato.ERROR) {
-            reportarError(ctx.getStart().getLine(), "El operador || requiere booleanos.");
+            reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), "El operador || requiere booleanos.");
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
         generador.agregarSaltoCondicional(der.getValorC3D(), "==", "1", etVerdadera);
@@ -184,37 +184,101 @@ public class GestorExpresionesZ extends ZetarianoGestorBase
         TipoDato resultado = ControlTipos.resolverUnariaLogica(tipo.getTipo());
         if (resultado == TipoDato.ERROR)
         {
-            reportarError(ctx.getStart().getLine(), "No se puede aplicar negación lógica a un tipo " + tipo.getTipo() + ".");
+            reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), "No se puede aplicar negación lógica a un tipo " + tipo.getTipo() + ".");
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
         String temporal = generador.generarTemporal();
         generador.agregarAsignacion(temporal, "1", "-", tipo.getValorC3D());
         return new ResultadoC3D(resultado, temporal);
     }
+
+    public Object procesarTernario(ZetarianoParser.TernarioContext ctx)
+    {
+        ResultadoC3D resCond = (ResultadoC3D) visitor.visit(ctx.expresion(0));
+        if (resCond == null || resCond.getTipo() == TipoDato.ERROR) return new ResultadoC3D(TipoDato.ERROR, "");
+        if (resCond.getTipo() != TipoDato.BOOLEANO)
+        {
+            reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), "La condición del operador ternario debe ser booleana.");
+            return new ResultadoC3D(TipoDato.ERROR, "");
+        }
+        String etVerdadera = generador.generarEtiqueta();
+        String etFalsa = generador.generarEtiqueta();
+        String etSalida = generador.generarEtiqueta();
+        String tempResultado = generador.generarTemporal();
+        generador.agregarSaltoCondicional(resCond.getValorC3D(), "==", "1", etVerdadera);
+        generador.agregarSaltoIncondicional(etFalsa);
+        generador.agregarEtiqueta(etVerdadera);
+        ResultadoC3D resV = (ResultadoC3D) visitor.visit(ctx.expresion(1));
+        if (resV == null || resV.getTipo() == TipoDato.ERROR) return new ResultadoC3D(TipoDato.ERROR, "");
+        generador.agregarAsignacion(tempResultado, resV.getValorC3D());
+        generador.agregarSaltoIncondicional(etSalida);
+        generador.agregarEtiqueta(etFalsa);
+        ResultadoC3D resF = (ResultadoC3D) visitor.visit(ctx.expresion(2));
+        if (resF == null || resF.getTipo() == TipoDato.ERROR) return new ResultadoC3D(TipoDato.ERROR, "");
+        generador.agregarAsignacion(tempResultado, resF.getValorC3D());
+        generador.agregarEtiqueta(etSalida);
+        TipoDato tipoResultado = ControlTipos.resolverTernario(resV.getTipo(), resF.getTipo());
+        if (tipoResultado == TipoDato.ERROR)
+        {
+            reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), "Tipos incompatibles en operador ternario: " + resV.getTipo() + " y " + resF.getTipo() + ".");
+            return new ResultadoC3D(TipoDato.ERROR, "");
+        }
+        return new ResultadoC3D(tipoResultado, tempResultado);
+    }
     
     public Object procesarAccesoVariableOAtributo(ZetarianoParser.AccesoVariableOAtributoContext ctx)
     {
-        String idVariable = ctx.acceso().ID(0).getText();
-        Simbolo sim = tabla.buscar(idVariable);
-        int linea = ctx.acceso().ID(0).getSymbol().getLine();
-        if (sim == null)
+        boolean esAccesoSimple = ctx.acceso().getChildCount() == 1;
+        if (esAccesoSimple)
         {
-            reportarError(linea, "La variable '" + idVariable + "' no ha sido declarada.");
-            return new ResultadoC3D(TipoDato.ERROR, "");
-        }
-        List<TerminalNode> ids = ctx.acceso().ID();
-        if (ids.size() == 1)
-        {
+            String idVariable = ctx.acceso().ID(0).getText();
+            Simbolo sim = tabla.buscar(idVariable);
+            int linea = ctx.acceso().ID(0).getSymbol().getLine();
+            int columna = ctx.acceso().ID(0).getSymbol().getCharPositionInLine();
+            Simbolo simAtributoThis = null;
+            if (sim == null) simAtributoThis = resolverAtributoDeThis(idVariable);
+            if (sim == null && simAtributoThis == null)
+            {
+                reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), "Variable no declarada.");
+                return new ResultadoC3D(TipoDato.ERROR, "");
+            }
+            if (simAtributoThis != null)
+            {
+                Simbolo simThis = tabla.buscar("this");
+                generador.agregarComentario("Lectura implícita de this." + idVariable + "");
+                String tempThis = generador.generarTemporal();
+                String tempPosThis = generador.generarTemporal();
+                String tempDirFinal = generador.generarTemporal();
+                generador.agregarAsignacion(tempPosThis, "punteroStack", "+", String.valueOf(simThis.getOffset()));
+                generador.agregarGetStack(tempThis, tempPosThis);
+                generador.agregarAsignacion(tempDirFinal, tempThis, "+", String.valueOf(simAtributoThis.getOffset()));
+                String temporal = generador.generarTemporal();
+                generador.agregarGetHeap(temporal, tempDirFinal);
+                return new ResultadoC3D(simAtributoThis.getTipo(), temporal);
+            }
             if (sim instanceof SimboloVariable && !((SimboloVariable)sim).isInicializado() && !sim.isEnHeap())
             {
-                reportarError(linea, "La variable local '" + idVariable + "' podría no haber sido inicializada.");
+                reportarError(linea, columna, "La variable local " + idVariable + " podría no haber sido inicializada.");
                 return new ResultadoC3D(TipoDato.ERROR, "");
             }
             String temporal = generador.generarTemporal();
-            if (sim.isEnHeap())
+            if (tabla.esGlobal(idVariable)) 
             {
-                generador.agregarGetHeap(temporal, String.valueOf(sim.getOffset()));
+                Simbolo simThis = tabla.buscar("this");
+                if (simThis != null) 
+                {
+                    generador.agregarComentario("Lectura implícita de this." + idVariable + "");
+                    String tempThis = generador.generarTemporal();
+                    String tempPosThis = generador.generarTemporal();
+                    String tempDirFinal = generador.generarTemporal();
+                    generador.agregarAsignacion(tempPosThis, "punteroStack", "+", String.valueOf(simThis.getOffset()));
+                    generador.agregarGetStack(tempThis, tempPosThis);
+                    generador.agregarAsignacion(tempDirFinal, tempThis, "+", String.valueOf(sim.getOffset()));
+                    generador.agregarGetHeap(temporal, tempDirFinal);
+                    return new ResultadoC3D(sim.getTipo(), temporal);
+                }
             }
+            if (sim.isEnHeap()) generador.agregarGetHeap(temporal, String.valueOf(sim.getOffset()));
             else
             {
                 String tempIndice = generador.generarTemporal();
@@ -225,15 +289,28 @@ public class GestorExpresionesZ extends ZetarianoGestorBase
         }
         else
         {
-            ResultadoC3D resDireccion = GestorPunteros.obtenerPosicionAtributo(sim, ids, tabla, generador);
-            if (resDireccion.getTipo() == TipoDato.ERROR)
-            {
-                reportarError(linea, "Acceso a atributo inválido en '" + idVariable + "'.");
-                return new ResultadoC3D(TipoDato.ERROR, "");
-            }
-            String temporalValor = generador.generarTemporal();
-            generador.agregarGetHeap(temporalValor, resDireccion.getValorC3D());
-            return new ResultadoC3D(resDireccion.getTipo(), temporalValor);
+            ResultadoC3D direccion = calcularDireccionAcceso(ctx.acceso());
+            if (direccion.getTipo() == TipoDato.ERROR) return direccion;
+            String tempValor = generador.generarTemporal();
+            generador.agregarGetHeap(tempValor, direccion.getValorC3D());
+            return new ResultadoC3D(direccion.getTipo(), tempValor);
         }
+    }
+    
+    public Object procesarInstanciaArray(ZetarianoParser.InstanciaArrayContext ctx)
+    {
+        String tipoStr = ctx.tipoBase().getText();
+        TipoDato tipoNorm = ControlTipos.normalizarTipo(tipoStr);
+        int tamañoTotal = 1;
+        List<Integer> tamaños = new ArrayList<>();
+        for (ZetarianoParser.ExpresionContext exp : ctx.expresion())
+        {
+            int tam = Integer.parseInt(exp.getText()); 
+            tamaños.add(tam);
+            tamañoTotal *= tam;
+        }
+        ResultadoC3D resInstancia = GestorArreglos.instanciarArregloVacio(tamañoTotal, tipoNorm, generador);
+        resInstancia.setTamañosDimensiones(tamaños);
+        return resInstancia;
     }
 }
