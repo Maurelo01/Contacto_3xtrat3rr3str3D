@@ -1,15 +1,12 @@
 package mycompany.contacto_3xtrat3rr3str3d.piglatin;
 
-import java.util.List;
 import mycompany.contacto_3xtrat3rr3str3d.PigLatinParser;
 import mycompany.contacto_3xtrat3rr3str3d.simbolos.Simbolo;
 import mycompany.contacto_3xtrat3rr3str3d.simbolos.SimboloVariable;
 import mycompany.contacto_3xtrat3rr3str3d.simbolos.TipoDato;
 import mycompany.contacto_3xtrat3rr3str3d.utils.ControlTipos;
-import mycompany.contacto_3xtrat3rr3str3d.utils.GestorPunteros;
 import mycompany.contacto_3xtrat3rr3str3d.utils.ResultadoC3D;
 import mycompany.contacto_3xtrat3rr3str3d.visitors.PigLatinCustomVisitor;
-import org.antlr.v4.runtime.tree.TerminalNode;
 
 public class GestorExpresionesPig extends PigLatinGestorBase 
 {
@@ -20,20 +17,21 @@ public class GestorExpresionesPig extends PigLatinGestorBase
     
     public Object procesarAccesoVariableOAtributo(PigLatinParser.AccesoVariableOAtributoContext ctx)
     {
-        String idVariable = ctx.acceso().ID(0).getText();
-        Simbolo sim = tabla.buscar(idVariable);
-        int linea = ctx.acceso().ID(0).getSymbol().getLine();
-        if (sim == null)
+        boolean esAccesoSimple = ctx.acceso().getChildCount() == 1;
+        if (esAccesoSimple)
         {
-            reportarError(linea, "La variable '" + idVariable + "' no ha sido declarada.");
-            return new ResultadoC3D(TipoDato.ERROR, "");
-        }
-        List<TerminalNode> ids = ctx.acceso().ID();
-        if (ids.size() == 1)
-        {
+            String idVariable = ctx.acceso().ID(0).getText();
+            Simbolo sim = tabla.buscar(idVariable);
+            int linea = ctx.acceso().ID(0).getSymbol().getLine();
+            int columna = ctx.acceso().ID(0).getSymbol().getCharPositionInLine();
+            if (sim == null)
+            {
+                reportarError(linea, columna, "La variable " + idVariable + " no ha sido declarada.");
+                return new ResultadoC3D(TipoDato.ERROR, "");
+            }
             if (sim instanceof SimboloVariable && !((SimboloVariable)sim).isInicializado() && !sim.isEnHeap())
             {
-                reportarError(linea, "La variable local '" + idVariable + "' no está inicializada.");
+                reportarError(linea, columna, "La variable local " + idVariable + " no está inicializada.");
                 return new ResultadoC3D(TipoDato.ERROR, "");
             }
             String temporal = generador.generarTemporal();
@@ -48,15 +46,11 @@ public class GestorExpresionesPig extends PigLatinGestorBase
         }
         else
         {
-            ResultadoC3D resDireccion = GestorPunteros.obtenerPosicionAtributo(sim, ids, tabla, generador);
-            if (resDireccion.getTipo() == TipoDato.ERROR)
-            {
-                reportarError(linea, "Acceso a atributo inválido en '" + idVariable + "'.");
-                return new ResultadoC3D(TipoDato.ERROR, "");
-            }
-            String temporalValor = generador.generarTemporal();
-            generador.agregarGetHeap(temporalValor, resDireccion.getValorC3D());
-            return new ResultadoC3D(resDireccion.getTipo(), temporalValor);
+            ResultadoC3D resDireccion = calcularDireccionAcceso(ctx.acceso());
+            if (resDireccion.getTipo() == TipoDato.ERROR) return resDireccion;
+            String tempValor = generador.generarTemporal();
+            generador.agregarGetHeap(tempValor, resDireccion.getValorC3D());
+            return new ResultadoC3D(resDireccion.getTipo(), tempValor);
         }
     }
     
@@ -71,7 +65,7 @@ public class GestorExpresionesPig extends PigLatinGestorBase
         else tipoResultado = ControlTipos.resolverAritmetica(izq.getTipo(), der.getTipo());
         if (tipoResultado == TipoDato.ERROR)
         {
-            reportarError(ctx.getStart().getLine(), "Incompatibilidad de tipos.");
+            reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), "Incompatibilidad de tipos.");
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
         String temporal = generador.generarTemporal();
@@ -87,7 +81,7 @@ public class GestorExpresionesPig extends PigLatinGestorBase
         TipoDato tipoResultado = ControlTipos.resolverAritmetica(izq.getTipo(), der.getTipo());
         if (tipoResultado == TipoDato.ERROR)
         {
-            reportarError(ctx.getStart().getLine(), "Incompatibilidad de tipos.");
+            reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), "Incompatibilidad de tipos.");
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
         String temporal = generador.generarTemporal();
@@ -105,7 +99,7 @@ public class GestorExpresionesPig extends PigLatinGestorBase
         TipoDato resultado = ControlTipos.resolverRelacional(izq.getTipo(), der.getTipo());
         if (resultado == TipoDato.ERROR)
         {
-            reportarError(ctx.getStart().getLine(), "Comparación inválida.");
+            reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), "Comparación inválida.");
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
         String operador = ctx.MAYOR() != null ? ">" : ctx.MAYOR_IGUAL() != null ? ">=" : ctx.MENOR() != null ? "<" : "<=";
@@ -132,7 +126,7 @@ public class GestorExpresionesPig extends PigLatinGestorBase
         TipoDato resultado = ControlTipos.resolverIgualdad(izq.getTipo(), der.getTipo());
         if (resultado == TipoDato.ERROR)
         {
-            reportarError(ctx.getStart().getLine(), "Igualdad inválida.");
+            reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), "Igualdad inválida.");
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
         String operador = ctx.IGUALIGUAL() != null ? "==" : "!=";
@@ -201,7 +195,7 @@ public class GestorExpresionesPig extends PigLatinGestorBase
         TipoDato resultado = ControlTipos.resolverUnariaLogica(tipo.getTipo());
         if (resultado == TipoDato.ERROR)
         {
-            reportarError(ctx.getStart().getLine(), "Negación inválida.");
+            reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), "Negación inválida.");
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
         String temporal = generador.generarTemporal();

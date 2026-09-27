@@ -32,7 +32,7 @@ public class GestorFuncionesPig extends PigLatinGestorBase
                     generador.agregarFuncionNativa(GeneradorFuncionesNativas.getNativaImprimirString());
                     generador.agregarLlamadaNativa("nativa_imprimir_string", resExpr.getValorC3D());
                 }
-                else reportarError(ctx.getStart().getLine(), "Tipo " + resExpr.getTipo() + " no soportado para impresión.");
+                else reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), "Tipo " + resExpr.getTipo() + " no soportado para impresión.");
             }
         }
         generador.agregarPrint("c", "10");
@@ -45,13 +45,19 @@ public class GestorFuncionesPig extends PigLatinGestorBase
         if (ids.size() == 1)
         {
             String idFuncion = ids.get(0).getText();
-            Simbolo sim = tabla.buscar(idFuncion);
-            if (sim == null || !(sim instanceof SimboloFuncion))
+            int numArgs = (ctx.argumentos() != null) ? ctx.argumentos().expresion().size() : 0;
+            SimboloFuncion funcion = tabla.buscarFuncion(idFuncion, numArgs);
+            if (funcion == null)
             {
-                reportarError(ctx.getStart().getLine(), "La función externa '" + idFuncion + "' no existe en el entorno.");
+                Simbolo simLegacy = tabla.buscar(idFuncion);
+                if (simLegacy instanceof SimboloFuncion fLegacy && fLegacy.getParametros().size() == numArgs) funcion = fLegacy;
+            }
+            if (funcion == null)
+            {
+                if (tabla.existeFuncionBase(idFuncion)) reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), "La función externa " + idFuncion + " no tiene sobrecarga con " + numArgs + " argumento(s).");
+                else reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), "La función externa " + idFuncion + " no existe en el entorno.");
                 return new ResultadoC3D(TipoDato.ERROR, "");
             }
-            SimboloFuncion funcion = (SimboloFuncion) sim;
             int tamañoEntornoActual = tabla.obtenerAmbitoActual().size() + 1;
             if (ctx.argumentos() != null)
             {
@@ -66,7 +72,7 @@ public class GestorFuncionesPig extends PigLatinGestorBase
             }
             generador.agregarComentario("Llamando a funcion externa: " + idFuncion);
             generador.agregarAsignacion("punteroStack", "punteroStack", "+", String.valueOf(tamañoEntornoActual));
-            generador.agregarLlamadaNativa("metodo_" + idFuncion, "");
+            generador.agregarLlamadaNativa("metodo_" + funcion.getEtiquetaC3D(), "");
             String tempReturn = generador.generarTemporal();
             generador.agregarGetStack(tempReturn, "punteroStack");
             generador.agregarAsignacion("punteroStack", "punteroStack", "-", String.valueOf(tamañoEntornoActual));
@@ -74,7 +80,7 @@ public class GestorFuncionesPig extends PigLatinGestorBase
         }
         else
         {
-            reportarError(ctx.getStart().getLine(), "Aún no se soportan métodos de objetos.");
+            reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), "Aún no se soportan métodos de objetos.");
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
     }
@@ -92,9 +98,10 @@ public class GestorFuncionesPig extends PigLatinGestorBase
         String idVariable = ctx.ID().getText();
         Simbolo sim = tabla.buscar(idVariable);
         int linea = ctx.getStart().getLine();
+        int columna = ctx.getStart().getCharPositionInLine();
         if (sim == null)
         {
-            reportarError(linea, "La variable '" + idVariable + "' no ha sido declarada para lectura.");
+            reportarError(linea, columna, "La variable " + idVariable + " no ha sido declarada para lectura.");
             return null;
         }
         generador.agregarComentario("Lectura desde consola asignada a: " + idVariable);
@@ -111,7 +118,7 @@ public class GestorFuncionesPig extends PigLatinGestorBase
         }
         else
         {
-            reportarError(linea, "No es posible realizar lectura por consola para el tipo de dato: " + sim.getTipo());
+            reportarError(linea, columna, "No es posible realizar lectura por consola para el tipo de dato: " + sim.getTipo());
             return null;
         }
         if (sim instanceof SimboloVariable simboloVariable) simboloVariable.setInicializado(true);

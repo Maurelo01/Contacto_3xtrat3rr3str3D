@@ -94,6 +94,16 @@ public class ControlTipos
         if (t == TipoDato.ENTERO || t == TipoDato.DECIMAL) return t;
         return TipoDato.ERROR;
     }
+    public static TipoDato resolverTernario(TipoDato tVerdadero, TipoDato tFalso)
+    {
+        if (tVerdadero == TipoDato.ERROR || tFalso == TipoDato.ERROR) return TipoDato.ERROR;
+        if (tVerdadero == tFalso) return tVerdadero;
+        boolean esNumV = (tVerdadero == TipoDato.ENTERO || tVerdadero == TipoDato.DECIMAL);
+        boolean esNumF = (tFalso == TipoDato.ENTERO || tFalso == TipoDato.DECIMAL);
+        if (esNumV && esNumF) return TipoDato.DECIMAL;
+        if (tVerdadero == TipoDato.CADENA || tFalso == TipoDato.CADENA) return TipoDato.CADENA;
+        return TipoDato.ERROR;
+    }
     public static String obtenerValorPorDefecto(TipoDato tipo) 
     {
         switch (tipo)

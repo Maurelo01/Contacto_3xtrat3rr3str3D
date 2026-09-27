@@ -5,6 +5,7 @@ import mycompany.contacto_3xtrat3rr3str3d.c3d.GeneradorC3D;
 import mycompany.contacto_3xtrat3rr3str3d.ZetarianoBaseVisitor;
 import mycompany.contacto_3xtrat3rr3str3d.ZetarianoParser;
 import javax.swing.JTextArea;
+import java.util.Stack;
 import mycompany.contacto_3xtrat3rr3str3d.utils.*;
 import mycompany.contacto_3xtrat3rr3str3d.zetariano.*;
 
@@ -14,6 +15,11 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
     private JTextArea consola;
     public boolean hayErroresSemanticos = false;
     private GeneradorC3D generador = GeneradorC3D.getInstancia();
+    private Stack<String> pilaBreak = new Stack<>();
+    private Stack<String> pilaContinue = new Stack<>();
+    private Stack<String> pilaReturn = new Stack<>();
+    private boolean limpiarAlIniciar = true;
+    private Stack<String> pilaClaseActual = new Stack<>();
     
     private GestorEstructurasZ gestorEstructurasZ;
     private GestorVariablesZ gestorVariablesZ;
@@ -28,6 +34,33 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
         this.gestorControlFlujoZ = new GestorControlFlujoZ(this);
         this.gestorVariablesZ = new GestorVariablesZ(this);
         this.gestorExpresionesZ = new GestorExpresionesZ(this);
+    }
+
+    public ZetarianoCustomVisitor(TablaSimbolos tabla, JTextArea consola, boolean limpiarAlIniciar)
+    {
+        this(tabla, consola);
+        this.limpiarAlIniciar = limpiarAlIniciar;
+    }
+
+    public Stack<String> getPilaBreak()
+    {
+        return pilaBreak;
+    }
+    public Stack<String> getPilaContinue()
+    {
+        return pilaContinue;
+    }
+    public Stack<String> getPilaReturn()
+    {
+        return pilaReturn;
+    }
+    public Stack<String> getPilaClaseActual()
+    {
+        return pilaClaseActual;
+    }
+    public void setLimpiarAlIniciar(boolean v)
+    {
+        this.limpiarAlIniciar = v;
     }
     
     public TablaSimbolos getTabla()
@@ -54,7 +87,7 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
     @Override
     public Object visitPrograma(ZetarianoParser.ProgramaContext ctx)
     {
-        generador.limpiar(); 
+        if (limpiarAlIniciar) generador.limpiar(); 
         return super.visitPrograma(ctx);
     }
     @Override
@@ -89,6 +122,11 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
         return gestorEstructurasZ.procesarInstanciaObjeto(ctx);
     }
     @Override
+    public Object visitInstanciaArray(ZetarianoParser.InstanciaArrayContext ctx)
+    {
+        return gestorExpresionesZ.procesarInstanciaArray(ctx);
+    }
+    @Override
     public Object visitLlamadaFuncionOMetodo(ZetarianoParser.LlamadaFuncionOMetodoContext ctx)
     {
         return gestorEstructurasZ.procesarLlamadaFuncionOMetodo(ctx);
@@ -102,6 +140,8 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
     public Object visitInstruccion(ZetarianoParser.InstruccionContext ctx)
     {
         if (ctx.RETURN() != null) return gestorEstructurasZ.procesarReturn(ctx);
+        if (ctx.BREAK() != null) return gestorControlFlujoZ.procesarBreak(ctx);
+        if (ctx.CONTINUE() != null) return gestorControlFlujoZ.procesarContinue(ctx);
         return super.visitInstruccion(ctx);
     }
     
@@ -116,6 +156,11 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
     public Object visitDeclConAsignacion(ZetarianoParser.DeclConAsignacionContext ctx)
     {
         return gestorVariablesZ.procesarDeclConAsignacion(ctx);
+    }
+    @Override
+    public Object visitDeclArrayLiteral(ZetarianoParser.DeclArrayLiteralContext ctx)
+    {
+        return gestorVariablesZ.procesarDeclArrayLiteral(ctx);
     }
     @Override
     public Object visitAsignacion(ZetarianoParser.AsignacionContext ctx)
@@ -207,6 +252,11 @@ public class ZetarianoCustomVisitor extends ZetarianoBaseVisitor<Object>
     public Object visitAccesoVariableOAtributo(ZetarianoParser.AccesoVariableOAtributoContext ctx)
     {
         return gestorExpresionesZ.procesarAccesoVariableOAtributo(ctx);
+    }
+    @Override
+    public Object visitTernario(ZetarianoParser.TernarioContext ctx)
+    {
+        return gestorExpresionesZ.procesarTernario(ctx);
     }
     
     // LITERALES

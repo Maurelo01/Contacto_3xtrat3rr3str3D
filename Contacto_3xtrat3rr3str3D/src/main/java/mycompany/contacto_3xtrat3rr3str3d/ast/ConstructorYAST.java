@@ -2,6 +2,7 @@ package mycompany.contacto_3xtrat3rr3str3d.ast;
 
 import mycompany.contacto_3xtrat3rr3str3d.YBaseVisitor;
 import mycompany.contacto_3xtrat3rr3str3d.YParser;
+import org.antlr.v4.runtime.tree.TerminalNode;
 
 public class ConstructorYAST extends YBaseVisitor<NodoAST>
 {
@@ -50,7 +51,12 @@ public class ConstructorYAST extends YBaseVisitor<NodoAST>
     @Override
     public NodoAST visitAtributoNormal(YParser.AtributoNormalContext ctx)
     {
-        return new NodoAST("Atributo: " + ctx.tipo().getText() + " " + ctx.ID().getText());
+        NodoAST attr = new NodoAST("Atributo: " + ctx.tipo().getText() + " " + ctx.ID().getText());
+        if (ctx.NUMERO() != null)
+        {
+            attr.agregarHijo("Tamaño Arreglo: " + ctx.NUMERO().getText());
+        }
+        return attr;
     }
     @Override
     public NodoAST visitAtributoEstructuraAnidada(YParser.AtributoEstructuraAnidadaContext ctx)
@@ -80,7 +86,7 @@ public class ConstructorYAST extends YBaseVisitor<NodoAST>
             NodoAST params = new NodoAST("Parametros");
             for (YParser.ParametroContext p : ctx.parametros().parametro())
             {
-                params.agregarHijo(visit(p)); // Llamamos al visit para respetar los espacios
+                params.agregarHijo(visit(p));
             }
             nodoFunc.agregarHijo(params);
         }
@@ -150,6 +156,28 @@ public class ConstructorYAST extends YBaseVisitor<NodoAST>
     public NodoAST visitDeclEstructura(YParser.DeclEstructuraContext ctx)
     {
         return new NodoAST("Instancia Estructura: " + ctx.ID(0).getText() + " " + ctx.ID(1).getText());
+    }
+    @Override
+    public NodoAST visitDeclArreglo(YParser.DeclArregloContext ctx)
+    {
+        NodoAST decl = new NodoAST("Declaracion Arreglo: " + ctx.tipo().getText() + " " + ctx.ID().getText());
+        for (TerminalNode n : ctx.NUMERO())
+        {
+            decl.agregarHijo("Tamaño: " + n.getText());
+        }
+        return decl;
+    }
+    @Override
+    public NodoAST visitDeclArregloLiteral(YParser.DeclArregloLiteralContext ctx)
+    {
+        NodoAST decl = new NodoAST("Arreglo Literal: " + ctx.tipo().getText() + " " + ctx.ID().getText());
+        if (ctx.argumentos() != null)
+        {
+            NodoAST args = new NodoAST("Valores Iniciales");
+            for (YParser.ExpresionContext exp : ctx.argumentos().expresion()) args.agregarHijo(visit(exp));
+            decl.agregarHijo(args);
+        }
+        return decl;
     }
     
     // ASIGNACION

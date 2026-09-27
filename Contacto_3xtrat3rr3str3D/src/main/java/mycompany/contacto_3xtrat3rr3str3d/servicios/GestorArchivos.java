@@ -45,4 +45,25 @@ public class GestorArchivos
     {
         Files.write(archivo.toPath(), contenido.getBytes());
     }
+
+    public static boolean crearCarpeta(File padre, String nombre) throws IOException
+    {
+        File nueva = new File(padre, nombre);
+        if (nueva.exists()) return false;
+        return nueva.mkdirs();
+    }
+
+    public static boolean eliminarRecursivo(File objetivo) throws IOException
+    {
+        if (objetivo == null || !objetivo.exists()) return false;
+        if (objetivo.isDirectory())
+        {
+            File[] hijos = objetivo.listFiles();
+            if (hijos != null)
+            {
+                for (File hijo : hijos) eliminarRecursivo(hijo);
+            }
+        }
+        return objetivo.delete();
+    }
 }

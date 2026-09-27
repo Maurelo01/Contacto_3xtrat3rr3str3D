@@ -1,15 +1,12 @@
 package mycompany.contacto_3xtrat3rr3str3d.y;
 
-import java.util.List;
 import mycompany.contacto_3xtrat3rr3str3d.YParser;
 import mycompany.contacto_3xtrat3rr3str3d.simbolos.Simbolo;
 import mycompany.contacto_3xtrat3rr3str3d.simbolos.SimboloVariable;
 import mycompany.contacto_3xtrat3rr3str3d.simbolos.TipoDato;
 import mycompany.contacto_3xtrat3rr3str3d.utils.ControlTipos;
-import mycompany.contacto_3xtrat3rr3str3d.utils.GestorPunteros;
 import mycompany.contacto_3xtrat3rr3str3d.utils.ResultadoC3D;
 import mycompany.contacto_3xtrat3rr3str3d.visitors.YCustomVisitor;
-import org.antlr.v4.runtime.tree.TerminalNode;
 
 public class GestorExpresionesY extends YGestorBase
 {
@@ -29,7 +26,7 @@ public class GestorExpresionesY extends YGestorBase
         else tipoResultado = ControlTipos.resolverAritmetica(izq.getTipo(), der.getTipo());
         if (tipoResultado == TipoDato.ERROR)
         {
-            reportarError(ctx.getStart().getLine(), "Incompatibilidad de tipos (" + izq.getTipo() + " " + operador + " " + der.getTipo() + ").");
+            reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(),"Incompatibilidad de tipos (" + izq.getTipo() + " " + operador + " " + der.getTipo() + ").");
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
         String temporal = generador.generarTemporal();
@@ -45,7 +42,7 @@ public class GestorExpresionesY extends YGestorBase
         TipoDato tipoResultado = ControlTipos.resolverAritmetica(izq.getTipo(), der.getTipo());
         if (tipoResultado == TipoDato.ERROR)
         {
-            reportarError(ctx.getStart().getLine(), "Incompatibilidad de tipos (" + izq.getTipo() + " y " + der.getTipo() + ").");
+            reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(),"Incompatibilidad de tipos (" + izq.getTipo() + " y " + der.getTipo() + ").");
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
         String temporal = generador.generarTemporal();
@@ -62,7 +59,7 @@ public class GestorExpresionesY extends YGestorBase
         TipoDato resultado = ControlTipos.resolverRelacional(izq.getTipo(), der.getTipo());
         if (resultado == TipoDato.ERROR)
         {
-            reportarError(ctx.getStart().getLine(), "No se pueden comparar " + izq.getTipo() + " y " + der.getTipo() + ".");
+            reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(),"No se pueden comparar " + izq.getTipo() + " y " + der.getTipo() + ".");
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
         String operador = ctx.MAYOR() != null ? ">" : ctx.MAYOR_IGUAL() != null ? ">=" : ctx.MENOR() != null ? "<" : "<=";
@@ -88,7 +85,7 @@ public class GestorExpresionesY extends YGestorBase
         
         TipoDato resultado = ControlTipos.resolverIgualdad(izq.getTipo(), der.getTipo());
         if (resultado == TipoDato.ERROR) {
-            reportarError(ctx.getStart().getLine(), "No se puede evaluar igualdad entre " + izq.getTipo() + " y " + der.getTipo() + ".");
+            reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(),"No se puede evaluar igualdad entre " + izq.getTipo() + " y " + der.getTipo() + ".");
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
         
@@ -123,7 +120,7 @@ public class GestorExpresionesY extends YGestorBase
         TipoDato resultado = ControlTipos.resolverLogica(izq.getTipo(), der.getTipo());
         if (resultado == TipoDato.ERROR)
         {
-            reportarError(ctx.getStart().getLine(), "El operador && requiere booleanos.");
+            reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(),"El operador && requiere booleanos.");
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
         generador.agregarSaltoCondicional(der.getValorC3D(), "==", "1", etVerdadera);
@@ -151,7 +148,7 @@ public class GestorExpresionesY extends YGestorBase
         TipoDato resultado = ControlTipos.resolverLogica(izq.getTipo(), der.getTipo());
         if (resultado == TipoDato.ERROR)
         {
-            reportarError(ctx.getStart().getLine(), "El operador || requiere booleanos.");
+            reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(),"El operador || requiere booleanos.");
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
         generador.agregarSaltoCondicional(der.getValorC3D(), "==", "1", etVerdadera);
@@ -185,7 +182,7 @@ public class GestorExpresionesY extends YGestorBase
         TipoDato resultado = ControlTipos.resolverUnariaLogica(tipo.getTipo());
         if (resultado == TipoDato.ERROR)
         {
-            reportarError(ctx.getStart().getLine(), "No se puede aplicar negación lógica a " + tipo.getTipo() + ".");
+            reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(),"No se puede aplicar negación lógica a " + tipo.getTipo() + ".");
             return new ResultadoC3D(TipoDato.ERROR, "");
         }
         String temporal = generador.generarTemporal();
@@ -195,24 +192,19 @@ public class GestorExpresionesY extends YGestorBase
     
     public Object procesarAccesoVariableOAtributo(YParser.AccesoVariableOAtributoContext ctx)
     {
-        String idVariable = ctx.acceso().ID(0).getText();
-        Simbolo sim = tabla.buscar(idVariable);
-        int linea = ctx.acceso().ID(0).getSymbol().getLine();
-        if (sim == null)
+        boolean esAccesoSimple = ctx.acceso().getChildCount() == 1;
+        if (esAccesoSimple)
         {
-            reportarError(linea, "La variable '" + idVariable + "' no ha sido declarada.");
-            return new ResultadoC3D(TipoDato.ERROR, "");
-        }
-        List<TerminalNode> ids = ctx.acceso().ID();
-        if (ids.size() == 1)
-        {
-            if (sim instanceof SimboloVariable && !((SimboloVariable)sim).isInicializado() && !sim.isEnHeap())
+            String idVariable = ctx.acceso().ID(0).getText();
+            Simbolo sim = tabla.buscar(idVariable);
+            if (sim == null)
             {
-                reportarError(linea, "La variable local '" + idVariable + "' podría no haber sido inicializada.");
+                reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(),"La variable " + idVariable + " no ha sido declarada.");
                 return new ResultadoC3D(TipoDato.ERROR, "");
             }
+            if (sim instanceof SimboloVariable && !((SimboloVariable) sim).isInicializado() && !sim.isEnHeap()) reportarError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(),"La variable local " + idVariable + " podría no estar inicializada.");
             String temporal = generador.generarTemporal();
-            if (sim.isEnHeap())generador.agregarGetHeap(temporal, String.valueOf(sim.getOffset()));
+            if (sim.isEnHeap()) generador.agregarGetHeap(temporal, String.valueOf(sim.getOffset()));
             else
             {
                 String tempIndice = generador.generarTemporal();
@@ -223,15 +215,11 @@ public class GestorExpresionesY extends YGestorBase
         }
         else
         {
-            ResultadoC3D resDireccion = GestorPunteros.obtenerPosicionAtributo(sim, ids, tabla, generador);
-            if (resDireccion.getTipo() == TipoDato.ERROR)
-            {
-                reportarError(linea, "Acceso a atributo inválido en '" + idVariable + "'.");
-                return new ResultadoC3D(TipoDato.ERROR, "");
-            }
-            String temporalValor = generador.generarTemporal();
-            generador.agregarGetHeap(temporalValor, resDireccion.getValorC3D());
-            return new ResultadoC3D(resDireccion.getTipo(), temporalValor);
+            ResultadoC3D direccion = calcularDireccionAcceso(ctx.acceso());
+            if (direccion.getTipo() == TipoDato.ERROR) return direccion;
+            String tempValor = generador.generarTemporal();
+            generador.agregarGetHeap(tempValor, direccion.getValorC3D());
+            return new ResultadoC3D(direccion.getTipo(), tempValor);
         }
     }
 }

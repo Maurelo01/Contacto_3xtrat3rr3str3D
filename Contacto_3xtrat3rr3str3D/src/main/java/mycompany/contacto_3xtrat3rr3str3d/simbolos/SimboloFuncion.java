@@ -8,12 +8,14 @@ public class SimboloFuncion extends Simbolo
     private List<SimboloVariable> parametros;
     private String etiquetaInicio;
     private int tamañoEntorno;
+    private String etiquetaC3D;
     public SimboloFuncion(String nombre, TipoDato tipo, int linea, int columna)
     {
         super(nombre, tipo, linea, columna);
         this.parametros = new ArrayList<>();
         this.tamañoEntorno = 0;
         this.enHeap = true;
+        this.etiquetaC3D = nombre;
     }
 
     public void agregarParametro(SimboloVariable parametro)
@@ -41,6 +43,15 @@ public class SimboloFuncion extends Simbolo
     public void setTamañoEntorno(int tamañoEntorno)
     {
         this.tamañoEntorno = tamañoEntorno;
+    }
+
+    public String getEtiquetaC3D()
+    {
+        return etiquetaC3D != null ? etiquetaC3D : nombre;
+    }
+    public void setEtiquetaC3D(String etiquetaC3D)
+    {
+        this.etiquetaC3D = etiquetaC3D;
     }
 
     @Override

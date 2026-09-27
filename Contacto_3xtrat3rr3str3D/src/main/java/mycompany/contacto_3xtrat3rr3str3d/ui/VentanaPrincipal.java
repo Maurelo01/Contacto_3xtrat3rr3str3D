@@ -7,6 +7,7 @@ import java.awt.Component;
 import java.io.File;
 import java.io.IOException;
 import javax.swing.JFileChooser;
+import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JScrollPane;
 import javax.swing.JTextPane;
@@ -32,10 +33,146 @@ public class VentanaPrincipal extends javax.swing.JFrame {
      */
     public VentanaPrincipal() {
         initComponents();
+        agregarOpciones();
         panelPestañas.addChangeListener((ChangeEvent e) ->
         {
             actualizarIndicadorPosicion();
         });
+    }
+
+    private void agregarOpciones()
+    {
+        JMenuItem itemNuevaCarpeta = new JMenuItem("Nueva Carpeta");
+        itemNuevaCarpeta.addActionListener(this::itemNuevaCarpetaActionPerformed);
+        menuArchivo.add(itemNuevaCarpeta);
+        JMenuItem itemGuardarComo = new JMenuItem("Guardar Como");
+        itemGuardarComo.addActionListener(this::itemGuardarComoActionPerformed);
+        menuArchivo.add(itemGuardarComo);
+        JMenuItem itemEliminar = new JMenuItem("Eliminar Seleccionado");
+        itemEliminar.addActionListener(this::itemEliminarActionPerformed);
+        menuArchivo.add(itemEliminar);
+        JMenuItem itemRefrescar = new JMenuItem("Refrescar Árbol");
+        itemRefrescar.addActionListener(e -> refrescarArbol());
+        menuArchivo.add(itemRefrescar);
+    }
+
+    private void refrescarArbol()
+    {
+        if (carpetaProyectoActual == null) return;
+        DefaultMutableTreeNode nodoRaiz = new DefaultMutableTreeNode(new GestorArchivos.NodoArchivo(carpetaProyectoActual));
+        GestorArchivos.llenarArbolDirectorios(carpetaProyectoActual, nodoRaiz);
+        treeArchivos.setModel(new DefaultTreeModel(nodoRaiz));
+    }
+
+    private File obtenerDestinoCarpeta()
+    {
+        DefaultMutableTreeNode nodo = (DefaultMutableTreeNode) treeArchivos.getLastSelectedPathComponent();
+        if (nodo != null && nodo.getUserObject() instanceof GestorArchivos.NodoArchivo na)
+        {
+            if (na.archivo.isDirectory()) return na.archivo;
+            if (na.archivo.getParentFile() != null) return na.archivo.getParentFile();
+        }
+        return carpetaProyectoActual;
+    }
+
+    private void itemNuevaCarpetaActionPerformed(java.awt.event.ActionEvent evt)
+    {
+        File destino = obtenerDestinoCarpeta();
+        if (destino == null)
+        {
+            JOptionPane.showMessageDialog(this, "Primero debes abrir un proyecto/carpeta.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        String nombre = JOptionPane.showInputDialog(this, "Nombre de la nueva carpeta:", "Nueva Carpeta", JOptionPane.QUESTION_MESSAGE);
+        if (nombre != null && !nombre.trim().isEmpty())
+        {
+            try
+            {
+                if (GestorArchivos.crearCarpeta(destino, nombre.trim()))
+                {
+                    JOptionPane.showMessageDialog(this, "Carpeta creada exitosamente.");
+                    refrescarArbol();
+                }
+                else JOptionPane.showMessageDialog(this, "La carpeta ya existe.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+            catch (IOException e)
+            {
+                JOptionPane.showMessageDialog(this, "Error al crear la carpeta: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    private void itemGuardarComoActionPerformed(java.awt.event.ActionEvent evt)
+    {
+        Component tabActiva = panelPestañas.getSelectedComponent();
+        if (!(tabActiva instanceof JScrollPane scroll))
+        {
+            JOptionPane.showMessageDialog(this, "No hay ningún archivo abierto.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        JTextPane editor = (JTextPane) scroll.getViewport().getView();
+        JFileChooser buscador = new JFileChooser();
+        buscador.setSelectedFile(new File("copia.pig"));
+        if (buscador.showSaveDialog(this) == JFileChooser.APPROVE_OPTION)
+        {
+            try
+            {
+                File destino = buscador.getSelectedFile();
+                GestorArchivos.guardarContenido(destino, editor.getText());
+                editor.putClientProperty("archivoFisico", destino);
+                panelPestañas.setTitleAt(panelPestañas.getSelectedIndex(), destino.getName());
+                JOptionPane.showMessageDialog(this, "Archivo guardado como " + destino.getName(), "Éxito", JOptionPane.INFORMATION_MESSAGE);
+                refrescarArbol();
+            }
+            catch (IOException e)
+            {
+                JOptionPane.showMessageDialog(this, "Error al descargar: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    private void itemEliminarActionPerformed(java.awt.event.ActionEvent evt)
+    {
+        DefaultMutableTreeNode nodo = (DefaultMutableTreeNode) treeArchivos.getLastSelectedPathComponent();
+        if (nodo == null || !(nodo.getUserObject() instanceof GestorArchivos.NodoArchivo na))
+        {
+            JOptionPane.showMessageDialog(this, "Selecciona un archivo o carpeta en el árbol para eliminar.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        File objetivo = na.archivo;
+        if (objetivo.equals(carpetaProyectoActual))
+        {
+            JOptionPane.showMessageDialog(this, "No se puede eliminar la carpeta raíz del proyecto.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        int confirm = JOptionPane.showConfirmDialog(this, "¿Eliminar " + objetivo.getName() + " y todo su contenido?", "Confirmar eliminación", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+        if (confirm != JOptionPane.YES_OPTION) return;
+        try
+        {
+            for (int i = 0; i < panelPestañas.getTabCount(); i++)
+            {
+                Component c = panelPestañas.getComponentAt(i);
+                if (c instanceof JScrollPane s)
+                {
+                    JTextPane ed = (JTextPane) s.getViewport().getView();
+                    File f = (File) ed.getClientProperty("archivoFisico");
+                    if (f != null && (f.equals(objetivo) || f.getAbsolutePath().startsWith(objetivo.getAbsolutePath() + File.separator)))
+                    {
+                        panelPestañas.remove(i--);
+                    }
+                }
+            }
+            if (GestorArchivos.eliminarRecursivo(objetivo))
+            {
+                JOptionPane.showMessageDialog(this, "Eliminado correctamente.");
+                refrescarArbol();
+            }
+            else JOptionPane.showMessageDialog(this, "No se pudo eliminar.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+        catch (IOException e)
+        {
+            JOptionPane.showMessageDialog(this, "Error al eliminar: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
     }
     
     private void abrirArchivoEnPestaña(File archivo)
@@ -314,7 +451,7 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         {
             JTextPane editor = (JTextPane) scroll.getViewport().getView();
             File archivo = (File) editor.getClientProperty("archivoFisico");
-            if (archivo != null) GestorCompilacion.analizarCodigo(archivo.getName(), editor.getText(), tablaMemoria, consolaSalida, consolaC3D, consolaAST);
+            if (archivo != null) GestorCompilacion.analizarCodigo(archivo.getName(), editor.getText(), tablaMemoria, consolaSalida, consolaC3D, consolaAST, archivo, carpetaProyectoActual);
             else JOptionPane.showMessageDialog(this, "El archivo no tiene ruta establecida, se debe guardar primero.", "Aviso", JOptionPane.WARNING_MESSAGE);
         }
         else JOptionPane.showMessageDialog(this, "No hay ningún archivo abierto para analizar.", "Aviso", JOptionPane.WARNING_MESSAGE);
